@@ -284,6 +284,42 @@ describe('Arena lifecycle and model turns', () => {
     expect(finished.models.red?.lastError).toContain('连续 2 次');
   });
 
+  it('forfeits immediately when the model request times out', async () => {
+    let calls = 0;
+    const provider: ModelProvider = {
+      provider: 'openai',
+      async complete() {
+        calls += 1;
+        throw new ProviderError('模型请求超时（60 秒）', {
+          timeout: true,
+          timeoutSeconds: 60,
+        });
+      },
+    };
+    const completions: ArenaState[] = [];
+    const arena = new Arena({
+      providerFactory: () => provider,
+      onGameComplete: (completion) => completions.push(completion.state),
+    });
+    activeArenas.push(arena);
+    startGame(arena, { moveDelayMs: 0, maxAttempts: 3 });
+
+    const finished = await waitFor(arena, (current) => current.phase === 'finished');
+    // A timeout loses at once: the remaining attempts are never used.
+    expect(calls).toBe(1);
+    expect(finished.error).toBeNull();
+    expect(finished.result).toMatchObject({ winner: 'black', reason: 'timeout' });
+    expect(finished.result?.text).toBe('红方模型请求超时（60 秒），判负');
+    expect(finished.models.red?.thinking).toBe(false);
+    expect(finished.models.red?.lastError).toContain('模型请求超时');
+    expect(finished.moves).toHaveLength(0);
+    expect(completions).toHaveLength(1);
+    expect(completions[0]?.result).toMatchObject({ winner: 'black', reason: 'timeout' });
+
+    // The game is over; there is no error turn to retry.
+    expect(() => arena.retry()).toThrow(/出错/);
+  });
+
   it('does not retry auth errors and exposes a safe message', async () => {
     let calls = 0;
     const provider: ModelProvider = {

@@ -129,6 +129,7 @@ const RESULT_REASONS = new Set([
   'dead-position',
   'no-progress',
   'max-plies',
+  'timeout',
   'forfeit',
 ]);
 const GROUP_IDS = new Set<ChampionshipGroupId>(CHAMPIONSHIP_GROUPS);

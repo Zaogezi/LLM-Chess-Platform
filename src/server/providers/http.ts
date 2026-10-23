@@ -94,7 +94,10 @@ export async function requestJson(options: JsonRequestOptions): Promise<unknown>
       throw error;
     }
     if (timeoutSignal.aborted || (error instanceof DOMException && error.name === 'TimeoutError')) {
-      throw new ProviderError(`模型请求超时（${seconds} 秒），可稍后重试`, { retryable: true });
+      throw new ProviderError(`模型请求超时（${seconds} 秒）`, {
+        timeout: true,
+        timeoutSeconds: seconds,
+      });
     }
     const detail = isAbortLike(error) ? '请求被中断' : error instanceof Error ? error.message : '未知网络错误';
     throw new ProviderError(`无法连接模型服务：${detail}`, { retryable: true });
@@ -106,7 +109,10 @@ export async function requestJson(options: JsonRequestOptions): Promise<unknown>
   } catch (error) {
     if (options.signal.aborted) throw error;
     if (timeoutSignal.aborted) {
-      throw new ProviderError(`读取模型响应超时（${seconds} 秒），可稍后重试`, { retryable: true });
+      throw new ProviderError(`读取模型响应超时（${seconds} 秒）`, {
+        timeout: true,
+        timeoutSeconds: seconds,
+      });
     }
     throw new ProviderError(
       `读取模型响应失败：${error instanceof Error ? error.message : '未知错误'}`,

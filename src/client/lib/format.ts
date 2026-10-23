@@ -30,6 +30,7 @@ export const RESULT_REASON_LABELS: Record<ResultReason, string> = {
   'dead-position': '死局',
   'no-progress': '无进展',
   'max-plies': '手数上限',
+  timeout: '超时判负',
   forfeit: '未着判负',
 };
 

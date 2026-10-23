@@ -26,6 +26,8 @@ export type ResultReason =
   | 'dead-position'
   | 'no-progress'
   | 'max-plies'
+  /** The side to move exceeded the per-step request timeout without replying. */
+  | 'timeout'
   /** The side to move exhausted its attempts without producing a legal move. */
   | 'forfeit';
 

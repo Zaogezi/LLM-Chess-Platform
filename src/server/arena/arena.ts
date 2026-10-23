@@ -9,6 +9,7 @@ import type {
   ModelView,
   MoveView,
   Phase,
+  ResultReason,
   Side,
 } from '../../shared/protocol';
 import { DEFAULT_SETTINGS, DEFAULT_THINKING_LEVEL } from '../../shared/protocol';
@@ -399,6 +400,14 @@ export class Arena {
         if (signal.aborted || !this.isCurrent(seq)) return;
         const message = this.describeError(error, runtime.setup);
         view.lastError = message;
+
+        // A model that exceeds the per-step wait limit loses immediately: no
+        // retry and no error state, so tournaments count a normal win/loss.
+        if (error instanceof ProviderError && error.timeout) {
+          this.forfeitTurn(side, message, 'timeout');
+          return;
+        }
+
         const retryable = error instanceof ProviderError ? error.retryable : false;
 
         if (retryable && attempt < this.settings.maxAttempts) {
@@ -577,11 +586,11 @@ export class Arena {
 
   /**
    * Adjudicate a direct loss when the side to move never produced a legal
-   * move. The opponent wins immediately and the game is archived as finished,
-   * so tournament/championship tables count it as a normal win/loss instead of
-   * a no-contest.
+   * move, or when its request exceeded the per-step timeout. The opponent wins
+   * immediately and the game is archived as finished, so tournament and
+   * championship tables count it as a normal win/loss instead of a no-contest.
    */
-  private forfeitTurn(side: Side, message: string): void {
+  private forfeitTurn(side: Side, message: string, reason: ResultReason = 'forfeit'): void {
     if (this.phase !== 'running') return;
     const view = this.models[side];
     if (view) {
@@ -591,7 +600,7 @@ export class Arena {
     }
     this.completeGame({
       winner: otherSide(side),
-      reason: 'forfeit',
+      reason,
       text: `${sideName(side)}${message}，判负`,
     });
   }

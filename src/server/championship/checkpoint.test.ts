@@ -11,6 +11,7 @@ import { CHAMPIONSHIP_GROUPS } from '../../shared/protocol';
 import {
   ChampionshipCheckpointStore,
   parseChampionshipCheckpoint,
+  parseChampionshipGameView,
   type ChampionshipCheckpoint,
   type ChampionshipCheckpointEntrant,
 } from './checkpoint';
@@ -193,6 +194,33 @@ describe('parseChampionshipCheckpoint (v2)', () => {
     expect(parsed?.series.every((series) => series.maxGames === 6)).toBe(true);
     expect(parsed?.series.every((series) => !series.overtime && !series.extra)).toBe(true);
     expect(parsed?.entrants[0]?.setup.apiKey).toBe('secret-A1');
+  });
+
+  it('accepts a timeout result for a finished game', () => {
+    const game = groupGames()[0]!;
+    const finished = {
+      ...game,
+      status: 'finished',
+      result: {
+        winner: 'black',
+        reason: 'timeout',
+        text: '红方模型请求超时（60 秒），判负',
+      },
+      winnerModelId: game.blackModelId,
+    };
+
+    const parsed = parseChampionshipGameView(
+      JSON.parse(JSON.stringify(finished)) as unknown,
+      new Set(ENTRANTS.map((item) => item.id)),
+      new Map(),
+      new Set(),
+    );
+
+    expect(parsed?.result).toEqual({
+      winner: 'black',
+      reason: 'timeout',
+      text: '红方模型请求超时（60 秒），判负',
+    });
   });
 
   it('round-trips the concurrency setting and treats old files as serial', () => {

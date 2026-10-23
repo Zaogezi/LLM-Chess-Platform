@@ -4,7 +4,7 @@ import type {
   TournamentState,
 } from '../../shared/protocol';
 import { XiangqiGame } from '../xiangqi/index';
-import type { ModelProvider } from '../providers/index';
+import { ProviderError, type ModelProvider } from '../providers/index';
 import { Tournament } from './tournament';
 import { validateTournamentStartRequest } from './validate';
 
@@ -109,6 +109,30 @@ describe('Tournament', () => {
     expect(state.standings[0]).toMatchObject({ name: 'Beta', wins: 1, points: 3, rank: 1 });
     expect(state.standings[1]).toMatchObject({ name: 'Alpha', losses: 1, points: 0, rank: 2 });
     expect(JSON.stringify(state)).not.toContain('secret-');
+  });
+
+  it('counts a request timeout as a normal loss instead of a failed game', async () => {
+    const provider: ModelProvider = {
+      provider: 'openai',
+      async complete() {
+        throw new ProviderError('模型请求超时（60 秒）', {
+          timeout: true,
+          timeoutSeconds: 60,
+        });
+      },
+    };
+    const tournament = createTournament({ providerFactory: () => provider });
+    const done = waitForEnd(tournament);
+    tournament.start(startInput(['Alpha', 'Beta'], 1));
+    const state = await done;
+
+    expect(state.phase).toBe('finished');
+    expect(state.games).toHaveLength(1);
+    expect(state.games[0]).toMatchObject({ status: 'finished', failedSide: null, error: null });
+    expect(state.games[0]?.result).toMatchObject({ winner: 'black', reason: 'timeout' });
+    expect(state.games[0]?.result?.text).toContain('红方模型请求超时');
+    expect(state.standings[0]).toMatchObject({ name: 'Beta', wins: 1, points: 3 });
+    expect(state.standings[1]).toMatchObject({ name: 'Alpha', losses: 1, points: 0 });
   });
 
   it('alternates colours and balances odd games across pairings', async () => {

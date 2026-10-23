@@ -30,11 +30,24 @@ export type ProviderFactory = (kind: 'openai' | 'anthropic') => ModelProvider;
 export class ProviderError extends Error {
   readonly status: number | null;
   readonly retryable: boolean;
+  /** The request exceeded its per-step wait limit rather than failing outright. */
+  readonly timeout: boolean;
+  readonly timeoutSeconds: number | null;
 
-  constructor(message: string, options: { status?: number | null; retryable?: boolean } = {}) {
+  constructor(
+    message: string,
+    options: {
+      status?: number | null;
+      retryable?: boolean;
+      timeout?: boolean;
+      timeoutSeconds?: number | null;
+    } = {},
+  ) {
     super(message);
     this.name = 'ProviderError';
     this.status = options.status ?? null;
     this.retryable = options.retryable ?? false;
+    this.timeout = options.timeout ?? false;
+    this.timeoutSeconds = options.timeoutSeconds ?? null;
   }
 }

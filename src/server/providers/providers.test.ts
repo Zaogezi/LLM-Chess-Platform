@@ -4,7 +4,7 @@ import type { ModelSetup } from '../../shared/protocol';
 import { anthropicProvider } from './anthropic';
 import { openaiProvider } from './openai';
 import { ProviderError } from './types';
-import { redactSecrets } from './http';
+import { redactSecrets, requestJson } from './http';
 import { THINKING_TIMEOUT_MS, thinkingTimeoutMs } from './thinking';
 
 interface CapturedRequest {
@@ -269,6 +269,49 @@ describe('OpenAI-compatible provider', () => {
     const pending = openaiProvider.complete(openAiSetup(mock.baseUrl), request(), controller.signal);
     controller.abort();
     await expect(pending).rejects.toBeDefined();
+  });
+
+  it('marks an unanswered request as a non-retryable timeout', async () => {
+    const mock = await mockServer(() => {
+      // Hold the connection open so only the per-request timer can settle it.
+    });
+
+    await expect(
+      requestJson({
+        url: `${mock.baseUrl}/v1/chat/completions`,
+        headers: {},
+        body: {},
+        signal: new AbortController().signal,
+        timeoutMs: 120,
+      }),
+    ).rejects.toMatchObject({
+      name: 'ProviderError',
+      timeout: true,
+      timeoutSeconds: 1,
+      retryable: false,
+    });
+  });
+
+  it('marks a stalled response read as a timeout', async () => {
+    const mock = await mockServer((_request, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.write('{"choices":[');
+      // Never finish the body.
+    });
+
+    await expect(
+      requestJson({
+        url: `${mock.baseUrl}/v1/chat/completions`,
+        headers: {},
+        body: {},
+        signal: new AbortController().signal,
+        timeoutMs: 120,
+      }),
+    ).rejects.toMatchObject({
+      name: 'ProviderError',
+      timeout: true,
+      message: expect.stringContaining('读取模型响应超时'),
+    });
   });
 });
 
