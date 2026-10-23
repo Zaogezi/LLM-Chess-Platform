@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "楚河论弈 · 中国象棋双模型竞技场",
+  "description": "楚河论弈 · 中国象棋模型竞技场",
   "engines": {
     "node": ">=22.12"
   },
