@@ -1,0 +1,28 @@
+# 依赖与构建产物
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# 本地运行时数据：模型库（含密钥）、历史对局、赛事断点与档案
+# 这些文件只在开发机本地生成，绝不提交到仓库
+data/
+
+# 环境变量与密钥
+.env
+.env.*
+
+# 日志与临时文件
+*.log
+*.tmp
+*.bak
+*.orig
+*.swp
+
+# 编辑器与系统文件
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

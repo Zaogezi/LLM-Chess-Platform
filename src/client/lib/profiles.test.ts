@@ -1,0 +1,153 @@
+import { describe, expect, it } from 'vitest';
+import type { ModelProfileView, ModelTestResponse } from '../../shared/protocol';
+import {
+  applyProfileFormPreset,
+  applyProfileToGameForm,
+  createProfileForm,
+  detectPreset,
+  profileTestErrorMessage,
+  profileTestFromResponse,
+  profileTestLatencyLabel,
+  profileToForm,
+  toProfileCreateRequest,
+  toProfileUpdateRequest,
+  validateProfileForm,
+} from './profiles';
+
+const profile: ModelProfileView = {
+  id: 'profile-1',
+  name: 'DeepSeek 深思',
+  provider: 'openai',
+  baseUrl: 'https://api.deepseek.com/v1',
+  model: 'deepseek-chat',
+  thinkingLevel: 'deep',
+  thinkingLevels: ['quick', 'balanced', 'deep'],
+  apiReasoning: true,
+  keyConfigured: true,
+  keyHint: '••••1234',
+  createdAt: 1,
+  updatedAt: 2,
+};
+
+describe('model profile form helpers', () => {
+  it('detects built-in presets and keeps custom endpoints custom', () => {
+    expect(detectPreset('openai', 'https://api.deepseek.com/v1/', 'deepseek-chat')).toBe(
+      'deepseek',
+    );
+    expect(detectPreset('openai', 'https://custom.example.test/v1', 'deepseek-chat')).toBe(
+      'custom',
+    );
+  });
+
+  it('validates names and reuses the shared endpoint validation', () => {
+    const form = createProfileForm();
+    const errors = validateProfileForm(form);
+    expect(errors.name).toMatch(/名称/);
+    expect(errors.baseUrl).toBeUndefined();
+
+    form.name = '   ';
+    expect(validateProfileForm(form).name).toMatch(/名称/);
+
+    form.name = 'x'.repeat(81);
+    expect(validateProfileForm(form).name).toMatch(/最多/);
+
+    form.name = '合法名称';
+    form.baseUrl = 'ftp://bad';
+    expect(validateProfileForm(form).baseUrl).toMatch(/http/);
+  });
+
+  it('creates requests with a key and preserves a stored key on blank updates', () => {
+    const form = profileToForm(profile);
+    form.apiKey = 'new-key';
+
+    const create = toProfileCreateRequest(form);
+    expect(create).toMatchObject({
+      name: 'DeepSeek 深思',
+      apiKey: 'new-key',
+      thinkingLevel: 'deep',
+      apiReasoning: true,
+    });
+
+    form.apiKey = '';
+    const keep = toProfileUpdateRequest(form, true);
+    expect(keep).not.toHaveProperty('apiKey');
+    expect(keep).not.toHaveProperty('clearApiKey');
+
+    form.clearKey = true;
+    expect(toProfileUpdateRequest(form, true)).toMatchObject({ clearApiKey: true });
+  });
+
+  it('applies A profile to game forms without carrying a browser key', () => {
+    const form = createProfileForm();
+    form.apiKey = 'temporary-browser-key';
+    const applied = applyProfileToGameForm(form, profile);
+    expect(applied).toMatchObject({
+      provider: 'openai',
+      baseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-chat',
+      apiKey: '',
+      thinkingLevel: 'deep',
+      apiReasoning: true,
+      preset: 'deepseek',
+    });
+  });
+
+  it('fills preset defaults when choosing a service preset', () => {
+    const form = createProfileForm();
+    form.name = 'DeepSeek';
+    const next = applyProfileFormPreset(form, 'ollama');
+    expect(next).toMatchObject({
+      preset: 'ollama',
+      provider: 'openai',
+      baseUrl: 'http://127.0.0.1:11434/v1',
+      model: 'qwen2.5:7b',
+      name: 'Ollama 本地',
+    });
+  });
+});
+
+describe('model availability result helpers', () => {
+  const response: ModelTestResponse = {
+    ok: true,
+    provider: 'openai',
+    model: 'deepseek-chat',
+    latencyMs: 842,
+    tokensIn: 12,
+    tokensOut: 1,
+    message: '模型可用，接口已成功返回内容。',
+    replyPreview: 'OK',
+    testedAt: 1_700_000_000_000,
+  };
+
+  it('maps successful and failed probes to display state', () => {
+    expect(profileTestFromResponse(response)).toMatchObject({
+      status: 'ok',
+      latencyMs: 842,
+      tokensIn: 12,
+      replyPreview: 'OK',
+    });
+    expect(
+      profileTestFromResponse({
+        ...response,
+        ok: false,
+        latencyMs: 500,
+        message: '模型不可用：鉴权失败',
+        replyPreview: '',
+      }),
+    ).toMatchObject({ status: 'error', message: '模型不可用：鉴权失败' });
+  });
+
+  it('formats latency and keeps a fallback for unexpected transport errors', () => {
+    expect(profileTestLatencyLabel(842)).toBe('842 ms');
+    expect(profileTestLatencyLabel(1_250)).toBe('1.3 s');
+    expect(profileTestLatencyLabel(undefined)).toBe('');
+    expect(profileTestErrorMessage('  网络不可达  ')).toMatchObject({
+      status: 'error',
+      message: '网络不可达',
+    });
+    expect(profileTestErrorMessage('')).toMatchObject({
+      status: 'error',
+      message: expect.stringContaining('失败'),
+    });
+  });
+});
