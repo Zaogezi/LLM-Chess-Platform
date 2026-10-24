@@ -284,7 +284,7 @@ describe('Arena lifecycle and model turns', () => {
     expect(finished.models.red?.lastError).toContain('连续 2 次');
   });
 
-  it('forfeits immediately when the model request times out', async () => {
+  it('uses one attempt per timeout and loses only after attempts are exhausted', async () => {
     let calls = 0;
     const provider: ModelProvider = {
       provider: 'openai',
@@ -304,13 +304,14 @@ describe('Arena lifecycle and model turns', () => {
     activeArenas.push(arena);
     startGame(arena, { moveDelayMs: 0, maxAttempts: 3 });
 
-    const finished = await waitFor(arena, (current) => current.phase === 'finished');
-    // A timeout loses at once: the remaining attempts are never used.
-    expect(calls).toBe(1);
+    const finished = await waitFor(arena, (current) => current.phase === 'finished', 8000);
+    // Every timeout consumed one of the three attempts before the loss.
+    expect(calls).toBe(3);
     expect(finished.error).toBeNull();
     expect(finished.result).toMatchObject({ winner: 'black', reason: 'timeout' });
     expect(finished.result?.text).toBe('红方模型请求超时（60 秒），判负');
     expect(finished.models.red?.thinking).toBe(false);
+    expect(finished.models.red?.attempts).toBe(3);
     expect(finished.models.red?.lastError).toContain('模型请求超时');
     expect(finished.moves).toHaveLength(0);
     expect(completions).toHaveLength(1);
@@ -318,6 +319,32 @@ describe('Arena lifecycle and model turns', () => {
 
     // The game is over; there is no error turn to retry.
     expect(() => arena.retry()).toThrow(/出错/);
+  });
+
+  it('retries after a timeout and continues when a later attempt answers', async () => {
+    let calls = 0;
+    const provider: ModelProvider = {
+      provider: 'openai',
+      async complete(_setup, request) {
+        calls += 1;
+        if (calls === 1) {
+          throw new ProviderError('模型请求超时（60 秒）', {
+            timeout: true,
+            timeoutSeconds: 60,
+          });
+        }
+        return reply(firstLegalFromPrompt(request));
+      },
+    };
+    const arena = createArena(provider);
+    startGame(arena, { moveDelayMs: 0, maxAttempts: 3 });
+
+    const state = await waitFor(arena, (current) => current.moves.length >= 1);
+    arena.pause();
+    expect(calls).toBeGreaterThanOrEqual(2);
+    expect(state.result).toBeNull();
+    expect(state.models.red?.attempts).toBe(2);
+    expect(state.moves[0]?.side).toBe('red');
   });
 
   it('forfeits immediately when a truncated reply cannot be parsed', async () => {

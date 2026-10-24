@@ -406,13 +406,7 @@ export class Arena {
         if (signal.aborted || !this.isCurrent(seq)) return;
         const message = this.describeError(error, runtime.setup);
         view.lastError = message;
-
-        // A model that exceeds the per-step wait limit loses immediately: no
-        // retry and no error state, so tournaments count a normal win/loss.
-        if (error instanceof ProviderError && error.timeout) {
-          this.forfeitTurn(side, message, 'timeout');
-          return;
-        }
+        const timedOut = error instanceof ProviderError && error.timeout;
 
         // An exhausted quota is not the game's result: surface it so the
         // scheduler can suspend the competition until the key is usable again.
@@ -428,13 +422,22 @@ export class Arena {
           return;
         }
 
-        const retryable = error instanceof ProviderError ? error.retryable : false;
+        // A timeout consumes one attempt like any other failed request: it is
+        // retried until maxAttempts is exhausted, and only then does it lose.
+        // This keeps a slow-but-finite model from losing on one slow reply.
+        const retryable =
+          error instanceof ProviderError ? timedOut || error.retryable : false;
 
         if (retryable && attempt < this.settings.maxAttempts) {
           this.emitState();
           await sleep(550 * attempt, signal);
           if (!this.isCurrent(seq)) return;
           continue;
+        }
+
+        if (timedOut) {
+          this.forfeitTurn(side, message, 'timeout');
+          return;
         }
 
         this.failTurn(side, message);
@@ -621,10 +624,10 @@ export class Arena {
   }
 
   /**
-   * Adjudicate a direct loss when the side to move never produced a legal
-   * move, or when its request exceeded the per-step timeout. The opponent wins
-   * immediately and the game is archived as finished, so tournament and
-   * championship tables count it as a normal win/loss instead of a no-contest.
+   * Adjudicate a direct loss when the side to move exhausted its attempts, or
+   * when the final attempt timed out. The opponent wins and the game is
+   * archived as finished, so tournament and championship tables count it as a
+   * normal win/loss instead of a no-contest.
    */
   private forfeitTurn(side: Side, message: string, reason: ResultReason = 'forfeit'): void {
     if (this.phase !== 'running') return;
