@@ -44,6 +44,8 @@ export interface TournamentModelDraft {
   apiReasoning: boolean;
   apiKey: string;
   showKey: boolean;
+  /** Independent per-step wait override; null follows the thinking tier. */
+  requestTimeoutSeconds: number | null;
 }
 
 export interface TournamentFieldErrors {
@@ -52,6 +54,7 @@ export interface TournamentFieldErrors {
   provider?: string;
   baseUrl?: string;
   model?: string;
+  requestTimeoutSeconds?: string;
 }
 
 export type TournamentModelErrors = Record<string, TournamentFieldErrors>;
@@ -146,6 +149,7 @@ export function createTournamentDraft(
     apiReasoning: config.apiReasoning,
     apiKey: '',
     showKey: false,
+    requestTimeoutSeconds: config.requestTimeoutSeconds,
   };
 }
 
@@ -186,6 +190,7 @@ export function applyPresetToDraft(
     thinkingLevel: 'balanced',
     thinkingOptions: [...DEFAULT_THINKING_LEVELS],
     apiReasoning: next.provider === 'openai',
+    requestTimeoutSeconds: null,
     name: shouldAdoptLabel ? next.label : draft.name,
   };
 }
@@ -216,6 +221,7 @@ export function applyProfileToDraft(
     thinkingLevel: profile.thinkingLevel,
     thinkingOptions: [...profile.thinkingLevels],
     apiReasoning: profile.apiReasoning,
+    requestTimeoutSeconds: profile.requestTimeoutSeconds ?? null,
     apiKey: '',
     showKey: false,
     name: shouldAdoptName ? uniqueModelName(profile.name, others) : draft.name,
@@ -321,6 +327,9 @@ export function draftToModelRequest(draft: TournamentModelDraft): TournamentMode
       profileId: draft.profileId,
       thinkingLevel: draft.thinkingLevel,
       apiReasoning: draft.apiReasoning,
+      ...(draft.requestTimeoutSeconds !== null
+        ? { requestTimeoutSeconds: draft.requestTimeoutSeconds }
+        : {}),
     };
   }
   return {
@@ -331,6 +340,9 @@ export function draftToModelRequest(draft: TournamentModelDraft): TournamentMode
     apiKey: draft.apiKey,
     thinkingLevel: draft.thinkingLevel,
     apiReasoning: draft.apiReasoning,
+    ...(draft.requestTimeoutSeconds !== null
+      ? { requestTimeoutSeconds: draft.requestTimeoutSeconds }
+      : {}),
   };
 }
 

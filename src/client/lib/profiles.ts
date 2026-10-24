@@ -32,6 +32,7 @@ export interface ProfileForm {
   apiKey: string;
   showKey: boolean;
   clearKey: boolean;
+  requestTimeoutSeconds: number | null;
 }
 
 export interface ProfileFormErrors {
@@ -39,6 +40,7 @@ export interface ProfileFormErrors {
   provider?: string;
   baseUrl?: string;
   model?: string;
+  requestTimeoutSeconds?: string;
 }
 
 export type ProfileTestStatus = 'testing' | 'ok' | 'error';
@@ -110,6 +112,7 @@ export function createProfileForm(): ProfileForm {
     apiKey: '',
     showKey: false,
     clearKey: false,
+    requestTimeoutSeconds: null,
   };
 }
 
@@ -126,6 +129,7 @@ export function profileToForm(profile: ModelProfileView): ProfileForm {
     apiKey: '',
     showKey: false,
     clearKey: false,
+    requestTimeoutSeconds: profile.requestTimeoutSeconds ?? null,
   };
 }
 
@@ -141,6 +145,7 @@ export function applyProfileFormPreset(form: ProfileForm, presetKey: PresetKey):
     thinkingLevel: 'balanced',
     thinkingOptions: [...DEFAULT_THINKING_LEVELS],
     apiReasoning: preset.provider === 'openai',
+    requestTimeoutSeconds: null,
     name:
       currentName.length === 0 || currentName === presetByKey(form.preset).label
         ? preset.key === 'custom'
@@ -170,6 +175,7 @@ export function toProfileCreateRequest(form: ProfileForm): ModelProfileCreateReq
     thinkingLevel: form.thinkingLevel,
     thinkingLevels: [...form.thinkingOptions],
     apiReasoning: form.apiReasoning,
+    requestTimeoutSeconds: form.requestTimeoutSeconds,
     apiKey: form.apiKey.trim(),
   };
 }
@@ -186,6 +192,7 @@ export function toProfileUpdateRequest(
     thinkingLevel: form.thinkingLevel,
     thinkingLevels: [...form.thinkingOptions],
     apiReasoning: form.apiReasoning,
+    requestTimeoutSeconds: form.requestTimeoutSeconds,
   };
 
   if (form.clearKey && hasStoredKey) {
@@ -219,6 +226,7 @@ export function applyProfileToGameForm(
     apiKey: string;
     showKey: boolean;
     preset: PresetKey;
+    requestTimeoutSeconds?: number | null;
   },
   profile: ModelProfileView,
 ): typeof form {
@@ -233,6 +241,7 @@ export function applyProfileToGameForm(
     apiReasoning: profile.apiReasoning,
     apiKey: '',
     showKey: false,
+    requestTimeoutSeconds: profile.requestTimeoutSeconds ?? null,
   };
 }
 

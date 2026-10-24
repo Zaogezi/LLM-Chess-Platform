@@ -45,6 +45,12 @@ export function ProfileCard({
               <span>{profileProviderLabel(profile.provider)}</span>
               <i aria-hidden="true">·</i>
               <code>{profile.model}</code>
+              {profile.requestTimeoutSeconds ? (
+                <>
+                  <i aria-hidden="true">·</i>
+                  <span>上限 {profile.requestTimeoutSeconds} 秒</span>
+                </>
+              ) : null}
             </p>
           </div>
         </div>

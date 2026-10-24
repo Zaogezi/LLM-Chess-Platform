@@ -8,6 +8,8 @@ import type {
 import {
   DEFAULT_SETTINGS,
   DEFAULT_THINKING_LEVEL,
+  REQUEST_TIMEOUT_MAX_SECONDS,
+  REQUEST_TIMEOUT_MIN_SECONDS,
   THINKING_LEVELS,
 } from '../../shared/protocol';
 
@@ -122,6 +124,22 @@ export function validateApiReasoning(value: unknown): boolean {
   throw new ValidationError('API 推理参数开关必须是布尔值');
 }
 
+/** `null` means "follow the thinking tier" rather than an explicit limit. */
+export function validateRequestTimeoutSeconds(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new ValidationError(
+      `最大推理时长须为 ${REQUEST_TIMEOUT_MIN_SECONDS}–${REQUEST_TIMEOUT_MAX_SECONDS} 秒的整数`,
+    );
+  }
+  if (value < REQUEST_TIMEOUT_MIN_SECONDS || value > REQUEST_TIMEOUT_MAX_SECONDS) {
+    throw new ValidationError(
+      `最大推理时长须在 ${REQUEST_TIMEOUT_MIN_SECONDS}–${REQUEST_TIMEOUT_MAX_SECONDS} 秒之间`,
+    );
+  }
+  return value;
+}
+
 function modelLabel(sideOrLabel: Side | string): string {
   if (sideOrLabel === 'red') return '红方';
   if (sideOrLabel === 'black') return '黑方';
@@ -162,6 +180,7 @@ export function validateModelSetup(value: unknown, sideOrLabel: Side | string): 
       ? provider === 'openai'
       : validateApiReasoning(input.apiReasoning);
 
+  const requestTimeoutSeconds = validateRequestTimeoutSeconds(input.requestTimeoutSeconds);
   return {
     provider: provider as ProviderKind,
     baseUrl: normalizeBaseUrl(input.baseUrl),
@@ -170,6 +189,7 @@ export function validateModelSetup(value: unknown, sideOrLabel: Side | string): 
     ...(displayName ? { displayName } : {}),
     thinkingLevel: validateThinkingLevel(input.thinkingLevel),
     apiReasoning,
+    ...(requestTimeoutSeconds !== null ? { requestTimeoutSeconds } : {}),
   };
 }
 
@@ -198,6 +218,10 @@ function resolveSideRequest(
     if (!saved) {
       throw new ValidationError(`${modelLabel(sideOrLabel)}选择的模型已不存在，请到模型库确认`);
     }
+    const requestTimeoutSeconds =
+      input.requestTimeoutSeconds === undefined
+        ? saved.requestTimeoutSeconds ?? null
+        : validateRequestTimeoutSeconds(input.requestTimeoutSeconds);
     return {
       ...saved,
       thinkingLevel:
@@ -208,6 +232,7 @@ function resolveSideRequest(
         input.apiReasoning === undefined
           ? Boolean(saved.apiReasoning)
           : validateApiReasoning(input.apiReasoning),
+      ...(requestTimeoutSeconds !== null ? { requestTimeoutSeconds } : {}),
     };
   }
   return validateModelSetup(value, sideOrLabel);

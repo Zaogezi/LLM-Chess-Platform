@@ -88,6 +88,7 @@ export function toSetupDrafts(
     thinkingOptions: [...draft.thinkingOptions],
     apiReasoning: draft.apiReasoning,
     apiKey: draft.apiKey,
+    requestTimeoutSeconds: draft.requestTimeoutSeconds ?? null,
     seedPool: draft.seedPool,
     qualifierGroup: draft.qualifierGroup,
   }));
@@ -113,6 +114,7 @@ export function fromSetupDrafts(
     apiReasoning: draft.apiReasoning,
     apiKey: draft.apiKey,
     showKey: false,
+    requestTimeoutSeconds: draft.requestTimeoutSeconds ?? null,
     seedPool: draft.seedPool,
     qualifierGroup: draft.qualifierGroup,
   }));
@@ -141,6 +143,14 @@ function isSetupDraft(value: unknown): value is ChampionshipSetupDraft {
   if (!Array.isArray(value.thinkingOptions)) return false;
   if (!value.thinkingOptions.every(isString)) return false;
   if (typeof value.apiReasoning !== 'boolean') return false;
+  if (
+    value.requestTimeoutSeconds !== undefined &&
+    value.requestTimeoutSeconds !== null &&
+    (typeof value.requestTimeoutSeconds !== 'number' ||
+      !Number.isInteger(value.requestTimeoutSeconds))
+  ) {
+    return false;
+  }
   if (!isSeedPool(value.seedPool)) return false;
   if (
     value.qualifierGroup !== null &&

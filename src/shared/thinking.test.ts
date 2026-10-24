@@ -3,6 +3,7 @@ import {
   isThinkingOff,
   nativeReasoningEffort,
   nativeThinkingBudget,
+  requestTimeoutSecondsFor,
   thinkingTimeoutSecondsFor,
   thinkingTierOf,
 } from './protocol';
@@ -26,6 +27,17 @@ describe('thinking level mapping', () => {
     expect(isThinkingOff('high')).toBe(false);
     expect(thinkingTimeoutSecondsFor('minimal')).toBe(60);
     expect(thinkingTimeoutSecondsFor('high')).toBe(240);
+  });
+
+  it('separates the request timeout from the thinking tier', () => {
+    // No override: the tier default still applies.
+    expect(requestTimeoutSecondsFor('minimal')).toBe(60);
+    expect(requestTimeoutSecondsFor('high')).toBe(240);
+    expect(requestTimeoutSecondsFor('balanced', null)).toBe(120);
+    // An explicit limit wins regardless of the thinking level.
+    expect(requestTimeoutSecondsFor('minimal', 300)).toBe(300);
+    expect(requestTimeoutSecondsFor('high', 90)).toBe(90);
+    expect(requestTimeoutSecondsFor('balanced', 0)).toBe(120);
   });
 
   it('emits exact native efforts for API levels and null when disabled', () => {

@@ -282,6 +282,9 @@ function isModelProfileView(value: unknown): value is ModelProfileView {
     Array.isArray(value.thinkingLevels) &&
     value.thinkingLevels.every((level) => typeof level === 'string' && level.trim().length > 0) &&
     typeof value.apiReasoning === 'boolean' &&
+    (value.requestTimeoutSeconds === undefined ||
+      value.requestTimeoutSeconds === null ||
+      typeof value.requestTimeoutSeconds === 'number') &&
     typeof value.keyConfigured === 'boolean' &&
     (value.keyHint === null || typeof value.keyHint === 'string') &&
     typeof value.createdAt === 'number' &&

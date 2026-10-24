@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ProviderKind, ThinkingLevel } from '../../shared/protocol';
-import { thinkingTimeoutSecondsFor } from '../../shared/protocol';
 import { fetchThinkingOptions } from '../api';
 import { thinkingLevelLabel } from '../lib/format';
 import {
@@ -155,7 +154,7 @@ export function ThinkingLevelField({
         >
           {available.map((level) => (
             <option key={level} value={level}>
-              {thinkingLevelLabel(level)} · {thinkingTimeoutSecondsFor(level)} 秒
+              {thinkingLevelLabel(level)}
             </option>
           ))}
         </select>

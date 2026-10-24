@@ -1,5 +1,10 @@
 import type { ModelSetup, ProviderKind, Side, ThinkingLevel } from '../shared/protocol';
-import { DEFAULT_THINKING_LEVELS, DEFAULT_THINKING_LEVEL } from '../shared/protocol';
+import {
+  DEFAULT_THINKING_LEVELS,
+  DEFAULT_THINKING_LEVEL,
+  REQUEST_TIMEOUT_MAX_SECONDS,
+  REQUEST_TIMEOUT_MIN_SECONDS,
+} from '../shared/protocol';
 
 export type PresetKey =
   | 'deepseek'
@@ -101,9 +106,13 @@ export interface ModelConfigForm {
   apiReasoning: boolean;
   apiKey: string;
   showKey: boolean;
+  /** Independent per-step wait override; null follows the thinking tier. */
+  requestTimeoutSeconds: number | null;
 }
 
-export type ModelConfigErrors = Partial<Record<'provider' | 'baseUrl' | 'model', string>>;
+export type ModelConfigErrors = Partial<
+  Record<'provider' | 'baseUrl' | 'model' | 'requestTimeoutSeconds', string>
+>;
 
 export function presetByKey(key: PresetKey): Preset {
   return PRESETS.find((preset) => preset.key === key) ?? PRESETS[PRESETS.length - 1];
@@ -123,6 +132,7 @@ export function createModelConfig(presetKey: PresetKey): ModelConfigForm {
     apiReasoning: preset.provider === 'openai',
     apiKey: '',
     showKey: false,
+    requestTimeoutSeconds: null,
   };
 }
 
@@ -155,6 +165,16 @@ export function validateModelConfig(form: ModelConfigForm): ModelConfigErrors {
     errors.model = '请填写模型 ID。';
   }
 
+  const timeout = form.requestTimeoutSeconds;
+  if (
+    timeout !== null &&
+    (!Number.isInteger(timeout) ||
+      timeout < REQUEST_TIMEOUT_MIN_SECONDS ||
+      timeout > REQUEST_TIMEOUT_MAX_SECONDS)
+  ) {
+    errors.requestTimeoutSeconds = `最大推理时长须为 ${REQUEST_TIMEOUT_MIN_SECONDS}–${REQUEST_TIMEOUT_MAX_SECONDS} 秒的整数。`;
+  }
+
   return errors;
 }
 
@@ -166,5 +186,6 @@ export function toModelSetup(form: ModelConfigForm): ModelSetup {
     thinkingLevel: form.thinkingLevel,
     apiReasoning: form.apiReasoning,
     apiKey: form.apiKey,
+    requestTimeoutSeconds: form.requestTimeoutSeconds,
   };
 }

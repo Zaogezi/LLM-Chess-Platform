@@ -59,6 +59,25 @@ describe('tournament saved-profile integration', () => {
     });
   });
 
+  it('keeps the request timeout independent from the thinking level', () => {
+    const timedProfile: ModelProfileView = { ...profile, requestTimeoutSeconds: 300 };
+    const draft = applyProfileToDraft(
+      createTournamentDraft('deepseek', 'DeepSeek'),
+      timedProfile,
+      [],
+    );
+    expect(draft.requestTimeoutSeconds).toBe(300);
+
+    const request = toTournamentStartRequest([draft], 1);
+    expect(request.models[0]).toMatchObject({ requestTimeoutSeconds: 300 });
+
+    const invalid = { ...draft, requestTimeoutSeconds: 3 };
+    const validation = validateTournamentDrafts([invalid], 1, [timedProfile]);
+    expect(validation.modelErrors[invalid.id]?.requestTimeoutSeconds).toMatch(
+      /最大推理时长/,
+    );
+  });
+
   it('reports a missing saved profile before starting', () => {
     const draft = applyProfileToDraft(
       createTournamentDraft('deepseek', 'DeepSeek'),

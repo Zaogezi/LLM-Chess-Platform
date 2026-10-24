@@ -202,6 +202,20 @@ describe('ChampionshipSetupStore parsing', () => {
     expect(store.save(saveRequest({ drafts }))).not.toBeNull();
   });
 
+  it('persists an independent request timeout per seat', () => {
+    const store = new ChampionshipSetupStore({ filePath: null });
+    const drafts = setupDrafts();
+    drafts[0] = { ...drafts[0]!, requestTimeoutSeconds: 300 };
+    const saved = store.save(saveRequest({ drafts }));
+
+    expect(saved?.drafts[0]?.requestTimeoutSeconds).toBe(300);
+    expect(saved?.drafts[1]?.requestTimeoutSeconds ?? null).toBeNull();
+
+    const invalid = setupDrafts();
+    invalid[0] = { ...invalid[0]!, requestTimeoutSeconds: 3 };
+    expect(store.save(saveRequest({ drafts: invalid }))).toBeNull();
+  });
+
   it('ignores a corrupt JSON file and warns', () => {
     const filePath = temporaryFile();
     writeFileSync(filePath, '{"version":1,"drafts":oops', 'utf8');

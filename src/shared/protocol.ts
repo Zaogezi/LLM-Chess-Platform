@@ -53,6 +53,24 @@ export const THINKING_LEVEL_TIMEOUT_SECONDS: Record<ThinkingTier, number> = {
   deep: 240,
 };
 
+/**
+ * Independent per-step wait limit. Models may override the tier default; leaving
+ * it empty keeps the thinking-tier fallback (60 / 120 / 240 seconds).
+ */
+export const REQUEST_TIMEOUT_MIN_SECONDS = 5;
+export const REQUEST_TIMEOUT_MAX_SECONDS = 1800;
+
+export function requestTimeoutSecondsFor(
+  level: ThinkingLevel,
+  overrideSeconds?: number | null,
+): number {
+  return typeof overrideSeconds === 'number' &&
+    Number.isFinite(overrideSeconds) &&
+    overrideSeconds > 0
+    ? Math.round(overrideSeconds)
+    : thinkingTimeoutSecondsFor(level);
+}
+
 const THINKING_OFF_WORDS = new Set([
   'off',
   'false',
@@ -140,6 +158,11 @@ export interface ModelSetup {
    * thinking level. Defaults to false for maximum OpenAI-compatible support.
    */
   apiReasoning?: boolean;
+  /**
+   * Optional override for the single-step wait limit in seconds. Omitted/null
+   * falls back to the thinking-tier default (60 / 120 / 240 s).
+   */
+  requestTimeoutSeconds?: number | null;
 }
 
 export interface GameSettings {
@@ -156,6 +179,8 @@ export interface ModelProfileSelection {
   /** Per-game overrides; omitted values use the saved profile defaults. */
   thinkingLevel?: ThinkingLevel;
   apiReasoning?: boolean;
+  /** Per-game wait-limit override; omitted/null uses the saved profile value. */
+  requestTimeoutSeconds?: number | null;
 }
 
 export type GameSideRequest = ModelSetup | ModelProfileSelection;
@@ -191,6 +216,8 @@ export interface ModelView {
   model: string;
   displayName: string;
   thinkingLevel: ThinkingLevel;
+  /** Independent wait override in seconds; null/absent follows the thinking tier. */
+  requestTimeoutSeconds?: number | null;
   /** Whether this match sends provider-native reasoning parameters. */
   apiReasoning: boolean;
   keyConfigured: boolean;
@@ -266,6 +293,8 @@ export interface ModelProfileView {
   /** Levels discovered from the model API, or built-in fallbacks. */
   thinkingLevels: ThinkingLevel[];
   apiReasoning: boolean;
+  /** Independent single-step wait override in seconds; null/absent follows the tier. */
+  requestTimeoutSeconds?: number | null;
   keyConfigured: boolean;
   /** Last few characters only, e.g. "••••1a2b"; never the full key. */
   keyHint: string | null;
@@ -286,6 +315,8 @@ export interface ModelProfileCreateRequest {
   /** Omit to use the built-in levels; pass values discovered from the API. */
   thinkingLevels?: ThinkingLevel[];
   apiReasoning?: boolean;
+  /** Independent wait override in seconds; omit or null to follow the tier. */
+  requestTimeoutSeconds?: number | null;
   apiKey?: string;
 }
 
@@ -409,6 +440,8 @@ export interface TournamentModelView {
   model: string;
   thinkingLevel: ThinkingLevel;
   apiReasoning: boolean;
+  /** Independent wait override in seconds; null/absent follows the thinking tier. */
+  requestTimeoutSeconds?: number | null;
   keyConfigured: boolean;
 }
 
@@ -639,6 +672,8 @@ export interface QualifierEntrantView {
   model: string;
   thinkingLevel: ThinkingLevel;
   apiReasoning: boolean;
+  /** Independent wait override in seconds; null/absent follows the thinking tier. */
+  requestTimeoutSeconds?: number | null;
   keyConfigured: boolean;
   groupId: QualifierGroupId;
 }
@@ -831,9 +866,11 @@ export interface ChampionshipSetupDraft {
   thinkingOptions: ThinkingLevel[];
   apiReasoning: boolean;
   apiKey: string;
+  /** Independent wait override in seconds; null/absent follows the thinking tier. */
+  requestTimeoutSeconds?: number | null;
   /** 1–4; qualifying seats use 4. */
   seedPool: number;
-  /** `A`/`B` for a qualifying seat, null for a seeded seat. */
+  /** 'A'/'B' for a qualifying seat, null for a seeded seat. */
   qualifierGroup: QualifierGroupId | null;
 }
 

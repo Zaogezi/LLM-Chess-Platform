@@ -8,6 +8,7 @@ import type {
 } from '../../lib/profiles';
 import { EyeIcon, EyeOffIcon, Spinner } from '../Icons';
 import { ProfileTestResult } from './ProfileTestResult';
+import { ReasoningTimeoutField } from '../ReasoningTimeoutField';
 import { ThinkingLevelField } from '../ThinkingLevelField';
 
 interface ProfileEditorProps {
@@ -188,6 +189,14 @@ export function ProfileEditor({
               ...(selected ? { thinkingLevel: selected } : {}),
             })
           }
+        />
+
+        <ReasoningTimeoutField
+          id="profile-requestTimeout"
+          value={form.requestTimeoutSeconds}
+          thinkingLevel={form.thinkingLevel}
+          error={errors.requestTimeoutSeconds}
+          onChange={(seconds) => onChange({ requestTimeoutSeconds: seconds })}
         />
 
         <div className="field">

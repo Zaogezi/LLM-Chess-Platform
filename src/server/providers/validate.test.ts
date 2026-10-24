@@ -72,6 +72,27 @@ describe('validateModelSetup', () => {
     );
   });
 
+  it('accepts an independent request timeout and rejects out-of-range values', () => {
+    const base = {
+      provider: 'openai',
+      baseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-chat',
+    };
+    expect(
+      validateModelSetup({ ...base, requestTimeoutSeconds: 300 }, 'red')
+        .requestTimeoutSeconds,
+    ).toBe(300);
+    expect(
+      validateModelSetup({ ...base, requestTimeoutSeconds: null }, 'red')
+        .requestTimeoutSeconds,
+    ).toBeUndefined();
+    for (const invalid of [4, 1801, 12.5, '300']) {
+      expect(() =>
+        validateModelSetup({ ...base, requestTimeoutSeconds: invalid }, 'red'),
+      ).toThrow(/最大推理时长/);
+    }
+  });
+
   it('allows local OpenAI-compatible endpoints without a key', () => {
     const setup = validateModelSetup(
       {

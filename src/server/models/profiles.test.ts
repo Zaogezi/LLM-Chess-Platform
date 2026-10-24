@@ -81,6 +81,33 @@ describe('ModelProfileStore', () => {
     expect(store.has(created.id)).toBe(true);
   });
 
+  it('persists an independent request timeout and exposes it in the view', () => {
+    const filePath = tempFile();
+    const store = new ModelProfileStore({ filePath });
+    const created = store.create(
+      validateProfileCreate(input({ requestTimeoutSeconds: 300 })),
+    );
+
+    expect(created.requestTimeoutSeconds).toBe(300);
+    expect(store.resolveSetup(created.id)?.requestTimeoutSeconds).toBe(300);
+
+    const reloaded = new ModelProfileStore({ filePath });
+    expect(reloaded.find(created.id)?.requestTimeoutSeconds).toBe(300);
+
+    const cleared = reloaded.update(
+      created.id,
+      validateProfileUpdate(input({ requestTimeoutSeconds: null, apiKey: undefined })),
+    );
+    expect(cleared?.requestTimeoutSeconds ?? null).toBeNull();
+
+    expect(() => validateProfileCreate(input({ requestTimeoutSeconds: 3 }))).toThrow(
+      /最大推理时长/,
+    );
+    expect(() => validateProfileCreate(input({ requestTimeoutSeconds: 1801 }))).toThrow(
+      /最大推理时长/,
+    );
+  });
+
   it('updates fields while keeping, replacing or clearing the secret', () => {
     const store = new ModelProfileStore({ filePath: null });
     const created = store.create(validateProfileCreate(input()));

@@ -28,6 +28,20 @@ export function thinkingTimeoutMs(
   return THINKING_TIMEOUT_MS[thinkingTierOf(resolveThinkingLevel(setup))];
 }
 
+/**
+ * Effective single-step wait limit. Models may set an explicit limit that is
+ * independent of the thinking tier used for prompt/reasoning behaviour.
+ */
+export function requestTimeoutMs(
+  setup: Pick<ModelSetup, 'thinkingLevel' | 'requestTimeoutSeconds'>,
+): number {
+  const override = setup.requestTimeoutSeconds;
+  if (typeof override === 'number' && Number.isFinite(override) && override > 0) {
+    return Math.round(override) * 1000;
+  }
+  return thinkingTimeoutMs(setup);
+}
+
 export function timeoutSeconds(timeoutMs: number): number {
   return Math.max(1, Math.round(timeoutMs / 1000));
 }

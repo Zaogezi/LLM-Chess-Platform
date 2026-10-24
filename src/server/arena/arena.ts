@@ -274,6 +274,7 @@ export class Arena {
       model: setup.model,
       displayName: setup.displayName?.trim() || setup.model,
       thinkingLevel: setup.thinkingLevel ?? DEFAULT_THINKING_LEVEL,
+      requestTimeoutSeconds: setup.requestTimeoutSeconds ?? null,
       apiReasoning: Boolean(setup.apiReasoning),
       keyConfigured: Boolean(setup.apiKey),
       thinking: false,

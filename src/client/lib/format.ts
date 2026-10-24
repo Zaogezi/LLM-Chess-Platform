@@ -10,7 +10,7 @@ import {
   API_THINKING_OUTPUT_TOKENS,
   nativeReasoningEffort,
   nativeThinkingBudget,
-  thinkingTimeoutSecondsFor,
+  requestTimeoutSecondsFor,
   thinkingTierOf,
 } from '../../shared/protocol';
 import { SIDE_LABEL } from './chess';
@@ -65,16 +65,20 @@ export function thinkingLevelLabel(level: ThinkingLevel): string {
   return known ?? (value || TIER_LABELS.balanced);
 }
 
-export function thinkingLevelHint(level: ThinkingLevel): string {
+export function thinkingLevelHint(
+  level: ThinkingLevel,
+  requestTimeoutSeconds?: number | null,
+): string {
   const tier = thinkingTierOf(level);
-  const seconds = thinkingTimeoutSecondsFor(level);
+  const seconds = requestTimeoutSecondsFor(level, requestTimeoutSeconds);
+  const limit = `最大推理时长 ${seconds} 秒。`;
   if (tier === 'quick') {
-    return `快速判断，不展开长链推演；单步等待上限 ${seconds} 秒。`;
+    return `快速判断，不展开长链推演；${limit}`;
   }
   if (tier === 'deep') {
-    return `深入比较候选着法与对手应手；单步等待上限 ${seconds} 秒。`;
+    return `深入比较候选着法与对手应手；${limit}`;
   }
-  return `常规审局，比较若干候选着法；单步等待上限 ${seconds} 秒。`;
+  return `常规审局，比较若干候选着法；${limit}`;
 }
 
 /** Human-readable description of the provider-native parameter that will be sent. */

@@ -325,6 +325,7 @@ export class Qualifier {
         model: entrant.setup.model,
         thinkingLevel: entrant.setup.thinkingLevel ?? DEFAULT_THINKING_LEVEL,
         apiReasoning: Boolean(entrant.setup.apiReasoning),
+        requestTimeoutSeconds: entrant.setup.requestTimeoutSeconds ?? null,
         keyConfigured: Boolean(entrant.setup.apiKey),
         groupId,
       });
@@ -570,6 +571,7 @@ export class Qualifier {
       model: entrant.setup.model,
       thinkingLevel: entrant.setup.thinkingLevel ?? DEFAULT_THINKING_LEVEL,
       apiReasoning: Boolean(entrant.setup.apiReasoning),
+      requestTimeoutSeconds: entrant.setup.requestTimeoutSeconds ?? null,
       keyConfigured: Boolean(entrant.setup.apiKey),
       groupId: entrant.groupId,
     }));

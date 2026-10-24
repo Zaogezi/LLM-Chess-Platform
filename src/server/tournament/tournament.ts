@@ -267,6 +267,7 @@ export class Tournament {
         model: setup.model,
         thinkingLevel: setup.thinkingLevel ?? DEFAULT_THINKING_LEVEL,
         apiReasoning: Boolean(setup.apiReasoning),
+        requestTimeoutSeconds: setup.requestTimeoutSeconds ?? null,
         keyConfigured: Boolean(setup.apiKey),
       };
     });

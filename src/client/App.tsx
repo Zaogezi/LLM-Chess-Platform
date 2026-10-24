@@ -200,6 +200,7 @@ export default function App() {
           profileId: profile.id,
           thinkingLevel: forms[side].thinkingLevel,
           apiReasoning: forms[side].apiReasoning,
+          requestTimeoutSeconds: forms[side].requestTimeoutSeconds,
         };
         continue;
       }

@@ -5,7 +5,7 @@ import {
 } from '../../shared/protocol';
 import { resolveEndpoint } from './endpoint';
 import { asNonNegativeInt, asRecord, isQuotaExceeded, requestJson } from './http';
-import { thinkingTimeoutMs } from './thinking';
+import { requestTimeoutMs } from './thinking';
 import {
   ProviderError,
   type CompletionRequest,
@@ -63,7 +63,7 @@ async function complete(
     headers,
     body,
     signal,
-    timeoutMs: thinkingTimeoutMs(setup),
+    timeoutMs: requestTimeoutMs(setup),
   });
 
   const data = asRecord(raw);

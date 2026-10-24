@@ -10,6 +10,7 @@ import type {
 import { TOURNAMENT_MODEL_SEALS } from '../../lib/tournament';
 import { EyeIcon, EyeOffIcon } from '../Icons';
 import { ThinkingLevelField } from '../ThinkingLevelField';
+import { ReasoningTimeoutField } from '../ReasoningTimeoutField';
 
 interface TournamentModelCardProps {
   index: number;
@@ -315,6 +316,15 @@ export function TournamentModelCard({
                   ...(selected ? { thinkingLevel: selected } : {}),
                 })
               }
+            />
+
+            <ReasoningTimeoutField
+              id={`${draft.id}-requestTimeout`}
+              value={draft.requestTimeoutSeconds}
+              thinkingLevel={draft.thinkingLevel}
+              disabled={disabled}
+              error={errors.requestTimeoutSeconds}
+              onChange={(seconds) => onChange({ requestTimeoutSeconds: seconds })}
             />
 
             <div className="field">

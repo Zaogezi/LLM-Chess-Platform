@@ -5,7 +5,7 @@ import { anthropicProvider } from './anthropic';
 import { openaiProvider } from './openai';
 import { ProviderError } from './types';
 import { redactSecrets, requestJson } from './http';
-import { THINKING_TIMEOUT_MS, thinkingTimeoutMs } from './thinking';
+import { THINKING_TIMEOUT_MS, requestTimeoutMs, thinkingTimeoutMs } from './thinking';
 
 interface CapturedRequest {
   url: string;
@@ -493,5 +493,16 @@ describe('thinking-level request budgets', () => {
     expect(thinkingTimeoutMs({ thinkingLevel: 'minimal' })).toBe(THINKING_TIMEOUT_MS.quick);
     expect(thinkingTimeoutMs({ thinkingLevel: 'high' })).toBe(THINKING_TIMEOUT_MS.deep);
     expect(thinkingTimeoutMs({ thinkingLevel: 'off' })).toBe(THINKING_TIMEOUT_MS.quick);
+  });
+
+  it('lets an explicit request timeout override the thinking tier', () => {
+    expect(requestTimeoutMs({ thinkingLevel: 'minimal', requestTimeoutSeconds: 300 })).toBe(
+      300_000,
+    );
+    expect(requestTimeoutMs({ thinkingLevel: 'deep', requestTimeoutSeconds: 45 })).toBe(45_000);
+    expect(requestTimeoutMs({ thinkingLevel: 'minimal' })).toBe(THINKING_TIMEOUT_MS.quick);
+    expect(requestTimeoutMs({ thinkingLevel: 'high', requestTimeoutSeconds: null })).toBe(
+      THINKING_TIMEOUT_MS.deep,
+    );
   });
 });

@@ -44,6 +44,8 @@ interface StoredModelProfile {
   thinkingLevel: ThinkingLevel;
   thinkingLevels: ThinkingLevel[];
   apiReasoning: boolean;
+  /** Independent single-step wait override in seconds; null follows the tier. */
+  requestTimeoutSeconds: number | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -61,6 +63,7 @@ export interface ValidatedProfileFields {
   thinkingLevel: ThinkingLevel;
   thinkingLevels: ThinkingLevel[];
   apiReasoning: boolean;
+  requestTimeoutSeconds?: number | null;
 }
 
 export interface ValidatedProfileCreate extends ValidatedProfileFields {
@@ -116,6 +119,7 @@ function validateFields(value: unknown): ValidatedProfileFields {
     thinkingLevel: levels.selected,
     thinkingLevels: levels.levels,
     apiReasoning: Boolean(setup.apiReasoning),
+    requestTimeoutSeconds: setup.requestTimeoutSeconds ?? null,
   };
 }
 
@@ -204,6 +208,7 @@ function toView(profile: StoredModelProfile): ModelProfileView {
     thinkingLevel: profile.thinkingLevel,
     thinkingLevels: [...profile.thinkingLevels],
     apiReasoning: profile.apiReasoning,
+    requestTimeoutSeconds: profile.requestTimeoutSeconds,
     keyConfigured: Boolean(profile.apiKey),
     keyHint: keyHint(profile.apiKey),
     createdAt: profile.createdAt,
@@ -228,6 +233,11 @@ function isStoredProfile(value: unknown): value is StoredModelProfile {
       profile.thinkingLevel.trim().length > 0 &&
       (profile.thinkingLevels === undefined || Array.isArray(profile.thinkingLevels)) &&
       typeof profile.apiReasoning === 'boolean' &&
+      (profile.requestTimeoutSeconds === undefined ||
+        profile.requestTimeoutSeconds === null ||
+        (typeof profile.requestTimeoutSeconds === 'number' &&
+          Number.isInteger(profile.requestTimeoutSeconds) &&
+          profile.requestTimeoutSeconds > 0)) &&
       typeof profile.createdAt === 'number' &&
       typeof profile.updatedAt === 'number',
   );
@@ -283,6 +293,7 @@ export class ModelProfileStore {
       displayName: profile.name,
       thinkingLevel: profile.thinkingLevel,
       apiReasoning: profile.apiReasoning,
+      requestTimeoutSeconds: profile.requestTimeoutSeconds,
     };
   }
 
@@ -303,6 +314,7 @@ export class ModelProfileStore {
       thinkingLevel: input.thinkingLevel,
       thinkingLevels: [...input.thinkingLevels],
       apiReasoning: input.apiReasoning,
+      requestTimeoutSeconds: input.requestTimeoutSeconds ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -324,6 +336,7 @@ export class ModelProfileStore {
     profile.thinkingLevel = input.thinkingLevel;
     profile.thinkingLevels = [...input.thinkingLevels];
     profile.apiReasoning = input.apiReasoning;
+    profile.requestTimeoutSeconds = input.requestTimeoutSeconds ?? null;
     if (input.apiKey.mode === 'replace') {
       profile.apiKey = input.apiKey.value;
     } else if (input.apiKey.mode === 'clear') {
@@ -399,6 +412,12 @@ export class ModelProfileStore {
           thinkingLevel: selected.selected,
           thinkingLevels: selected.levels,
           apiReasoning: raw.apiReasoning,
+          requestTimeoutSeconds:
+            typeof raw.requestTimeoutSeconds === 'number' &&
+            Number.isInteger(raw.requestTimeoutSeconds) &&
+            raw.requestTimeoutSeconds > 0
+              ? raw.requestTimeoutSeconds
+              : null,
           createdAt: raw.createdAt,
           updatedAt: raw.updatedAt,
         });

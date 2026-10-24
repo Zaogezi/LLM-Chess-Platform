@@ -28,6 +28,8 @@ import {
   CHAMPIONSHIP_POOLS,
   CHAMPIONSHIP_QUALIFIER_ENTRANTS,
   CHAMPIONSHIP_SEED_POOLS,
+  REQUEST_TIMEOUT_MAX_SECONDS,
+  REQUEST_TIMEOUT_MIN_SECONDS,
 } from '../../shared/protocol';
 
 /**
@@ -115,6 +117,16 @@ function isQualifierGroup(value: unknown): value is QualifierGroupId {
   return typeof value === 'string' && QUALIFIER_GROUPS.has(value as QualifierGroupId);
 }
 
+function isRequestTimeout(value: unknown): value is number | null {
+  if (value === undefined || value === null) return true;
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= REQUEST_TIMEOUT_MIN_SECONDS &&
+    value <= REQUEST_TIMEOUT_MAX_SECONDS
+  );
+}
+
 function isThinkingOptions(value: unknown): value is string[] {
   return (
     Array.isArray(value) &&
@@ -140,6 +152,7 @@ function parseDraft(value: unknown): ChampionshipSetupDraft | null {
   if (!isThinkingOptions(input.thinkingOptions)) return null;
   if (typeof input.apiReasoning !== 'boolean') return null;
   if (!isBoundedString(input.apiKey, MAX_API_KEY_LENGTH)) return null;
+  if (!isRequestTimeout(input.requestTimeoutSeconds)) return null;
   if (!isSeedPool(input.seedPool)) return null;
   if (input.qualifierGroup !== null && !isQualifierGroup(input.qualifierGroup)) {
     return null;
@@ -157,6 +170,10 @@ function parseDraft(value: unknown): ChampionshipSetupDraft | null {
     thinkingOptions: [...input.thinkingOptions],
     apiReasoning: input.apiReasoning,
     apiKey: input.apiKey,
+    requestTimeoutSeconds:
+      typeof input.requestTimeoutSeconds === 'number'
+        ? input.requestTimeoutSeconds
+        : null,
     seedPool: input.seedPool,
     qualifierGroup: input.qualifierGroup as QualifierGroupId | null,
   };

@@ -77,6 +77,22 @@ describe('model profile form helpers', () => {
     expect(toProfileUpdateRequest(form, true)).toMatchObject({ clearApiKey: true });
   });
 
+  it('carries the independent request timeout through forms and requests', () => {
+    const timedProfile: ModelProfileView = { ...profile, requestTimeoutSeconds: 300 };
+    const form = profileToForm(timedProfile);
+    expect(form.requestTimeoutSeconds).toBe(300);
+    expect(toProfileCreateRequest(form).requestTimeoutSeconds).toBe(300);
+    expect(toProfileUpdateRequest(form, true).requestTimeoutSeconds).toBe(300);
+
+    form.requestTimeoutSeconds = 3;
+    expect(validateProfileForm(form).requestTimeoutSeconds).toMatch(/最大推理时长/);
+    form.requestTimeoutSeconds = null;
+    expect(validateProfileForm(form).requestTimeoutSeconds).toBeUndefined();
+
+    const applied = applyProfileToGameForm(createProfileForm(), timedProfile);
+    expect(applied.requestTimeoutSeconds).toBe(300);
+  });
+
   it('applies A profile to game forms without carrying a browser key', () => {
     const form = createProfileForm();
     form.apiKey = 'temporary-browser-key';

@@ -11,6 +11,7 @@ import {
 } from '../lib/format';
 import { profileKeyLabel } from '../lib/profiles';
 import { EyeIcon, EyeOffIcon, LockIcon } from './Icons';
+import { ReasoningTimeoutField } from './ReasoningTimeoutField';
 import { ThinkingLevelField } from './ThinkingLevelField';
 
 interface ModelCardProps {
@@ -81,6 +82,8 @@ export function ModelCard({
   const displayProvider = PROVIDER_LABELS[providerKind];
   const displayThinkingLevel = locked && serverModel ? serverModel.thinkingLevel : form.thinkingLevel;
   const displayApiReasoning = locked && serverModel ? serverModel.apiReasoning : form.apiReasoning;
+  const displayRequestTimeout =
+    locked && serverModel ? serverModel.requestTimeoutSeconds ?? null : form.requestTimeoutSeconds;
   const hasErrors = Object.keys(errors).length > 0;
 
   const baseUrlErrorId = `${side}-baseUrl-error`;
@@ -105,7 +108,7 @@ export function ModelCard({
           <span className="model-card__provider">{displayProvider}</span>
           <span
             className="thinking-badge"
-            title={`${thinkingLevelHint(displayThinkingLevel)}${
+            title={`${thinkingLevelHint(displayThinkingLevel, displayRequestTimeout)}${
               displayApiReasoning
                 ? ` ${describeApiReasoning(providerKind, displayThinkingLevel)}`
                 : ''
@@ -304,6 +307,14 @@ export function ModelCard({
               ...(selected ? { thinkingLevel: selected } : {}),
             })
           }
+        />
+
+        <ReasoningTimeoutField
+          id={`${side}-requestTimeout`}
+          value={form.requestTimeoutSeconds}
+          thinkingLevel={form.thinkingLevel}
+          error={errors.requestTimeoutSeconds}
+          onChange={(seconds) => onChange({ requestTimeoutSeconds: seconds })}
         />
 
         <div className="api-reasoning-field">
