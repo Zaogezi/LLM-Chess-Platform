@@ -213,6 +213,8 @@ export interface GameResult {
 export interface ArenaError {
   side: Side;
   message: string;
+  /** True when the failure is a provider quota/credit error (pause, do not skip). */
+  quota?: boolean;
 }
 
 export interface ArenaState {
@@ -510,6 +512,8 @@ export type ChampionshipPhase =
   | 'finished'
   | 'stopped'
   | 'error'
+  /** Suspended automatically when a provider reports an exhausted quota. */
+  | 'paused'
   /** A checkpoint restored after a restart/power loss, waiting to be resumed. */
   | 'interrupted';
 export type ChampionshipStage =
@@ -585,6 +589,8 @@ export type QualifierPhase =
   | 'finished'
   | 'stopped'
   | 'error'
+  /** Suspended automatically when a provider reports an exhausted quota. */
+  | 'paused'
   /** A checkpoint restored after a restart/power loss, waiting to be resumed. */
   | 'interrupted';
 
@@ -802,6 +808,70 @@ export interface ChampionshipState {
   resumable: boolean;
   /** Epoch ms of the latest successful checkpoint write, or null. */
   checkpointSavedAt: number | null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Championship setup draft (survives app restarts before the start)   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One editable championship seat as the setup page holds it. Seats either
+ * reference a saved model-library profile or carry an inline model setup.
+ */
+export interface ChampionshipSetupDraft {
+  id: string;
+  profileId: string | null;
+  name: string;
+  /** Client preset key (e.g. `deepseek`, `openai`) or `custom`. */
+  preset: string;
+  provider: ProviderKind;
+  baseUrl: string;
+  model: string;
+  thinkingLevel: ThinkingLevel;
+  thinkingOptions: ThinkingLevel[];
+  apiReasoning: boolean;
+  apiKey: string;
+  /** 1–4; qualifying seats use 4. */
+  seedPool: number;
+  /** `A`/`B` for a qualifying seat, null for a seeded seat. */
+  qualifierGroup: QualifierGroupId | null;
+}
+
+export interface ChampionshipSetupDrawSlot {
+  /** Seed pool the entrant came from (1–4). */
+  pool: number;
+  draftId: string;
+  name: string;
+}
+
+export interface ChampionshipSetupDrawGroup {
+  id: ChampionshipGroupId;
+  /** Exactly one slot per seed pool, ordered 甲→丁. */
+  slots: ChampionshipSetupDrawSlot[];
+}
+
+export interface ChampionshipSetupDraw {
+  groups: ChampionshipSetupDrawGroup[];
+  groupByDraftId: Record<string, ChampionshipGroupId>;
+}
+
+/** Last saved setup form: seats, optional draw and the concurrency choice. */
+export interface ChampionshipSetupSnapshot {
+  version: 1;
+  savedAt: number;
+  drafts: ChampionshipSetupDraft[];
+  draw: ChampionshipSetupDraw | null;
+  concurrency: number;
+}
+
+export interface ChampionshipSetupSaveRequest {
+  drafts: ChampionshipSetupDraft[];
+  draw: ChampionshipSetupDraw | null;
+  concurrency: number;
+}
+
+export interface ChampionshipSetupResponse {
+  setup: ChampionshipSetupSnapshot | null;
 }
 
 /* ------------------------------------------------------------------ */

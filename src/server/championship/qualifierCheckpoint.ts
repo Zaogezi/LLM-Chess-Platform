@@ -28,7 +28,7 @@ import { validateModelSetup } from '../providers/validate';
 import { parseChampionshipGameView } from './checkpoint';
 
 /** Phases that may be written to a qualifying-round checkpoint. */
-export type QualifierCheckpointPhase = Exclude<QualifierPhase, 'idle' | 'finished'>;
+export type QualifierCheckpointPhase = Exclude<QualifierPhase, 'idle'>;
 
 export interface QualifierCheckpointEntrant {
   id: string;
@@ -76,7 +76,9 @@ const PHASES = new Set<QualifierCheckpointPhase>([
   'running',
   'stopped',
   'error',
+  'paused',
   'interrupted',
+  'finished',
 ]);
 
 function asRecord(value: unknown): Record<string, unknown> | null {

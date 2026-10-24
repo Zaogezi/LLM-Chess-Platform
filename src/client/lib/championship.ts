@@ -456,6 +456,7 @@ export const CHAMPIONSHIP_PHASE_LABELS: Record<ChampionshipPhase, string> = {
   finished: '已完赛',
   stopped: '已中止',
   error: '异常中止',
+  paused: '已暂停',
   interrupted: '中断待续',
 };
 
@@ -466,6 +467,8 @@ export const CHAMPIONSHIP_PHASE_HINTS: Record<ChampionshipPhase, string> = {
   finished: '全部系列赛结束，冠军与晋级路径已经结算。',
   stopped: '锦标赛已中止，已完成成绩和断点均已保存；可继续锦标赛或重新配置下一届。',
   error: '锦标赛因异常中止，断点已保存；可继续锦标赛，或查看错误后重新配置下一届。',
+  paused:
+    '模型 API 额度不足，锦标赛已暂停；充值或更换 API Key 后点击「继续锦标赛」恢复，未完成的对局会重赛。',
   interrupted:
     '服务重启或断电后已恢复断点；已完成的对局与系列赛成绩保留，点击「继续锦标赛」接着进行。',
 };
@@ -565,6 +568,7 @@ export function championshipPhaseTone(phase: ChampionshipPhase): TournamentTone 
     case 'finished':
       return 'finished';
     case 'stopped':
+    case 'paused':
     case 'interrupted':
       return 'paused';
     case 'error':

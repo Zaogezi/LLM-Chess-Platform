@@ -320,6 +320,30 @@ describe('Arena lifecycle and model turns', () => {
     expect(() => arena.retry()).toThrow(/出错/);
   });
 
+  it('marks an exhausted quota as a pausable error without retrying', async () => {
+    let calls = 0;
+    const provider: ModelProvider = {
+      provider: 'openai',
+      async complete() {
+        calls += 1;
+        throw new ProviderError('请求频率受限或额度不足（HTTP 429）：insufficient_quota', {
+          status: 429,
+          retryable: false,
+          quotaExceeded: true,
+        });
+      },
+    };
+    const arena = createArena(provider);
+    startGame(arena, { moveDelayMs: 0, maxAttempts: 3 });
+
+    const errored = await waitFor(arena, (current) => current.phase === 'error');
+    expect(calls).toBe(1);
+    expect(errored.result).toBeNull();
+    expect(errored.error).toMatchObject({ side: 'red', quota: true });
+    expect(errored.error?.message).toContain('额度');
+    expect(JSON.stringify(errored)).not.toContain('sk-');
+  });
+
   it('does not retry auth errors and exposes a safe message', async () => {
     let calls = 0;
     const provider: ModelProvider = {

@@ -20,6 +20,7 @@ export const QUALIFIER_PHASE_LABELS: Record<QualifierPhase, string> = {
   finished: '入围赛完成',
   stopped: '已中止',
   error: '异常中止',
+  paused: '已暂停',
   interrupted: '中断待续',
 };
 
@@ -29,6 +30,8 @@ export const QUALIFIER_PHASE_HINTS: Record<QualifierPhase, string> = {
   finished: '每组前二已进入四号种子池，可以开始抽签。',
   stopped: '入围赛已中止，断点已保存；可继续入围赛，或重新发起。',
   error: '入围赛因异常中止，断点已保存；可继续入围赛，或重新发起。',
+  paused:
+    '模型 API 额度不足，入围赛已暂停；充值或更换 API Key 后点击「继续入围赛」恢复，未完成的对局会重赛。',
   interrupted: '服务重启或断电后已恢复断点；点击「继续入围赛」接着进行。',
 };
 
@@ -45,6 +48,7 @@ export function qualifierPhaseTone(phase: QualifierPhase): TournamentTone {
     case 'finished':
       return 'finished';
     case 'stopped':
+    case 'paused':
     case 'interrupted':
       return 'paused';
     case 'error':

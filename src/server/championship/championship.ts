@@ -102,6 +102,10 @@ const CHAMPIONSHIP_GAME_SETTINGS: GameSettings = {
 const CANCELED_MESSAGE = '锦标赛提前终止';
 const FAILED_GAME_MESSAGE = '对局执行失败，已跳过该局';
 const INTERNAL_ERROR_MESSAGE = '锦标赛内部错误，可继续锦标赛或重新发起';
+/** The suspended game is replayed after the quota problem is fixed. */
+const QUOTA_CANCELED_MESSAGE = '模型 API 额度不足，恢复后重赛';
+const QUOTA_PAUSED_MESSAGE =
+  '模型 API 额度不足，锦标赛已暂停。请为相关模型充值或更换 API Key 后点击「继续锦标赛」恢复比赛';
 
 function isProcessedGame(game: ChampionshipGameView): boolean {
   return (
@@ -230,6 +234,8 @@ export class Championship {
   private lastFinishedGameId: string | null = null;
   private lastFinalState: ArenaState | null = null;
   private stopRequested = false;
+  /** Non-null while the run is suspended because a key's quota ran out. */
+  private pauseReason: string | null = null;
   private disposed = false;
 
   constructor(options: ChampionshipOptions = {}) {
@@ -288,6 +294,7 @@ export class Championship {
       resumable:
         (this.phase === 'stopped' ||
           this.phase === 'error' ||
+          this.phase === 'paused' ||
           this.phase === 'interrupted') &&
         this.entrants.length > 0 &&
         this.checkpointStore.has(),
@@ -401,6 +408,7 @@ export class Championship {
     this.stage = 'group';
     this.championshipId = randomUUID();
     this.error = null;
+    this.pauseReason = null;
     this.startedAt = Date.now();
     this.finishedAt = null;
     this.concurrency = input.concurrency;
@@ -432,6 +440,7 @@ export class Championship {
     if (
       this.phase !== 'stopped' &&
       this.phase !== 'error' &&
+      this.phase !== 'paused' &&
       this.phase !== 'interrupted'
     ) {
       throw new ChampionshipConflictError('当前没有可继续的锦标赛');
@@ -455,6 +464,7 @@ export class Championship {
     this.runToken += 1;
     const token = this.runToken;
     this.stopRequested = false;
+    this.pauseReason = null;
     this.abortController?.abort();
     this.abortController = new AbortController();
     this.phase = 'running';
@@ -657,6 +667,11 @@ export class Championship {
   private archivePreviousRunIfNeeded(): void {
     if (this.archiveEmitted || !this.onArchive) return;
     const phase = this.phase;
+    if (phase === 'paused') {
+      // A suspended edition replaced by a new one is archived as unfinished.
+      this.archiveRun('interrupted');
+      return;
+    }
     if (phase !== 'interrupted' && phase !== 'stopped' && phase !== 'error') return;
     this.archiveRun(phase);
   }
@@ -1118,6 +1133,17 @@ export class Championship {
     if (this.stopRequested) {
       this.markRemainingCanceled(CANCELED_MESSAGE);
       this.markSeriesStopped();
+      if (this.pauseReason) {
+        // Suspended by a quota error: keep the checkpoint and let the user fix
+        // the key and press 继续锦标赛. The interrupted game is replayed.
+        this.phase = 'paused';
+        this.error = this.pauseReason;
+        this.finishedAt = null;
+        this.persistCheckpoint();
+        this.dropRuntimes();
+        this.emitState();
+        return;
+      }
       this.phase = 'stopped';
       this.finishedAt = Date.now();
       this.persistCheckpoint();
@@ -1348,6 +1374,24 @@ export class Championship {
     this.currentGameIds = this.currentGameIds.filter((id) => id !== gameId);
   }
 
+  /**
+   * Suspend the edition after a provider reports an exhausted quota. In-flight
+   * games are canceled and replayed on resume; the checkpoint keeps every
+   * decided game plus the runtime setups needed to continue.
+   */
+  private requestQuotaPause(detail: string): void {
+    if (this.pauseReason) return;
+    this.pauseReason = detail
+      ? `${QUOTA_PAUSED_MESSAGE}（${detail}）`
+      : QUOTA_PAUSED_MESSAGE;
+    this.stopRequested = true;
+    for (const arena of this.activeArenas.values()) {
+      arena.dispose();
+    }
+    this.abortController?.abort();
+    this.emitState();
+  }
+
   private async runGame(game: ChampionshipGameView, token: number): Promise<void> {
     if (!this.currentGameIds.includes(game.id)) {
       this.currentGameIds.push(game.id);
@@ -1387,6 +1431,21 @@ export class Championship {
 
     this.lastFinishedGameId = game.id;
     this.lastFinalState = finalState;
+
+    // An exhausted quota suspends the whole edition instead of being recorded
+    // as a failed game: the key cannot recover by retrying, and the schedule
+    // must be re-played from this game once the user tops up or swaps keys.
+    if (finalState.phase === 'error' && finalState.error?.quota) {
+      game.status = 'canceled';
+      game.error = QUOTA_CANCELED_MESSAGE;
+      game.failedSide = finalState.error.side;
+      game.finishedAt = Date.now();
+      game.durationMs = Math.max(0, game.finishedAt - (game.startedAt ?? game.finishedAt));
+      this.dropActiveGame(game.id);
+      this.requestQuotaPause(finalState.error.message);
+      return;
+    }
+
     applyArenaTotals(game, finalState);
     if (finalState.phase === 'finished' && finalState.result) {
       game.status = 'finished';

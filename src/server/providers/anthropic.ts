@@ -4,7 +4,7 @@ import {
   nativeThinkingBudget,
 } from '../../shared/protocol';
 import { resolveEndpoint } from './endpoint';
-import { asNonNegativeInt, asRecord, requestJson } from './http';
+import { asNonNegativeInt, asRecord, isQuotaExceeded, requestJson } from './http';
 import { thinkingTimeoutMs } from './thinking';
 import {
   ProviderError,
@@ -77,7 +77,11 @@ async function complete(
       error && typeof error.message === 'string'
         ? error.message
         : 'Anthropic 返回了错误响应';
-    throw new ProviderError(`模型服务错误：${message}`, { retryable: true });
+    const quotaExceeded = isQuotaExceeded(null, message);
+    throw new ProviderError(`模型服务错误：${message}`, {
+      retryable: !quotaExceeded,
+      quotaExceeded,
+    });
   }
 
   const text = extractText(data).trim();

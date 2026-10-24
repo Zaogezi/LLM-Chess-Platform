@@ -100,6 +100,7 @@ const PHASES = new Set<ChampionshipCheckpointPhase>([
   'running',
   'stopped',
   'error',
+  'paused',
   'interrupted',
 ]);
 const STAGES = new Set<ChampionshipStage>([

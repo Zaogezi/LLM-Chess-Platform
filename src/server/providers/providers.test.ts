@@ -271,6 +271,60 @@ describe('OpenAI-compatible provider', () => {
     await expect(pending).rejects.toBeDefined();
   });
 
+  it('classifies an exhausted quota as a non-retryable pause signal', async () => {
+    const mock = await mockServer((_request, res) => {
+      res.writeHead(429, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'You exceeded your current quota, please check your plan and billing details.',
+            type: 'insufficient_quota',
+          },
+        }),
+      );
+    });
+
+    await expect(
+      openaiProvider.complete(openAiSetup(mock.baseUrl), request(), new AbortController().signal),
+    ).rejects.toMatchObject({
+      name: 'ProviderError',
+      status: 429,
+      retryable: false,
+      quotaExceeded: true,
+    });
+  });
+
+  it('keeps an ordinary rate limit retryable', async () => {
+    const mock = await mockServer((_request, res) => {
+      res.writeHead(429, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Rate limit reached for requests; please try again later.' },
+        }),
+      );
+    });
+
+    await expect(
+      openaiProvider.complete(openAiSetup(mock.baseUrl), request(), new AbortController().signal),
+    ).rejects.toMatchObject({
+      name: 'ProviderError',
+      status: 429,
+      retryable: true,
+      quotaExceeded: false,
+    });
+  });
+
+  it('treats HTTP 402 as an exhausted quota', async () => {
+    const mock = await mockServer((_request, res) => {
+      res.writeHead(402, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Payment required' } }));
+    });
+
+    await expect(
+      openaiProvider.complete(openAiSetup(mock.baseUrl), request(), new AbortController().signal),
+    ).rejects.toMatchObject({ quotaExceeded: true, retryable: false });
+  });
+
   it('marks an unanswered request as a non-retryable timeout', async () => {
     const mock = await mockServer(() => {
       // Hold the connection open so only the per-request timer can settle it.

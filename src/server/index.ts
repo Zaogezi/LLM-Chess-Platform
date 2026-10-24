@@ -5,6 +5,7 @@ import { createApp } from './app';
 import { ChampionshipArchiveStore } from './championship/archive';
 import { ChampionshipCheckpointStore } from './championship/checkpoint';
 import { QualifierCheckpointStore } from './championship/qualifierCheckpoint';
+import { ChampionshipSetupStore } from './championship/setup';
 
 const production =
   process.argv.includes('--production') || process.env.NODE_ENV === 'production';
@@ -18,6 +19,7 @@ const { app, arena, tournament, championship, qualifier } = createApp({
   ...(production ? { clientDir } : {}),
   checkpointStore: new ChampionshipCheckpointStore(),
   qualifierCheckpointStore: new QualifierCheckpointStore(),
+  setupStore: new ChampionshipSetupStore(),
   archiveStore: new ChampionshipArchiveStore(),
 });
 const server = createServer(app);

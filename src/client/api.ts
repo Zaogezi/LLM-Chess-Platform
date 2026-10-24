@@ -5,6 +5,8 @@ import type {
   ChampionshipArchivePhase,
   ChampionshipArchiveSummary,
   ChampionshipGameSnapshot,
+  ChampionshipSetupResponse,
+  ChampionshipSetupSaveRequest,
   ChampionshipStartRequest,
   ChampionshipState,
   HistoryDeleteResponse,
@@ -27,6 +29,7 @@ import type {
   TournamentState,
 } from '../shared/protocol';
 import type { HistoryListQuery } from './lib/history';
+import { isValidSetupSnapshot } from './lib/championshipSetup';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -135,6 +138,10 @@ function isChampionshipState(value: unknown): value is ChampionshipState {
     typeof value.resumable === 'boolean' &&
     (value.checkpointSavedAt === null || typeof value.checkpointSavedAt === 'number')
   );
+}
+
+function isChampionshipSetupResponse(value: unknown): value is ChampionshipSetupResponse {
+  return isRecord(value) && (value.setup === null || isValidSetupSnapshot(value.setup));
 }
 
 const CHAMPIONSHIP_ARCHIVE_PHASES: readonly ChampionshipArchivePhase[] = [
@@ -458,6 +465,39 @@ export function fetchChampionshipState(): Promise<ChampionshipState> {
     },
     isChampionshipState,
     '锦标赛服务返回的赛事状态不完整。',
+    '锦标赛',
+  );
+}
+
+export function fetchChampionshipSetup(): Promise<ChampionshipSetupResponse> {
+  return requestJson(
+    '/api/championship/setup',
+    {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    },
+    isChampionshipSetupResponse,
+    '锦标赛服务返回的配置快照不完整。',
+    '锦标赛',
+  );
+}
+
+export function putChampionshipSetup(
+  request: ChampionshipSetupSaveRequest,
+): Promise<ChampionshipSetupResponse> {
+  return requestJson(
+    '/api/championship/setup',
+    {
+      method: 'PUT',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    },
+    isChampionshipSetupResponse,
+    '锦标赛服务返回的配置快照不完整。',
     '锦标赛',
   );
 }

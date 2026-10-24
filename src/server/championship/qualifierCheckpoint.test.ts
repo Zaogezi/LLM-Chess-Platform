@@ -181,16 +181,21 @@ describe('parseQualifierCheckpoint', () => {
     }
   });
 
-  it('rejects an unknown version or a terminal phase', () => {
+  it('rejects an unknown version or an invalid phase', () => {
     expect(parseQualifierCheckpoint(asJson(checkpoint({ version: 2 as never })))).toBeNull();
     expect(parseQualifierCheckpoint(asJson(checkpoint({ version: '1' as never })))).toBeNull();
     expect(parseQualifierCheckpoint(null)).toBeNull();
     expect(parseQualifierCheckpoint([])).toBeNull();
-    for (const phase of ['idle', 'finished', 'unknown'] as readonly string[]) {
+    for (const phase of ['idle', 'unknown'] as readonly string[]) {
       expect(
         parseQualifierCheckpoint(asJson(checkpoint({ phase: phase as QualifierCheckpointPhase }))),
       ).toBeNull();
     }
+    // A finished round keeps its table so the main draw survives a restart.
+    const finished = parseQualifierCheckpoint(
+      asJson(checkpoint({ phase: 'finished' as QualifierCheckpointPhase })),
+    );
+    expect(finished?.phase).toBe('finished');
   });
 
   it('rejects malformed headers', () => {
@@ -332,15 +337,30 @@ describe('QualifierCheckpointStore', () => {
     writeFileSync(invalid, '{"version":1}', 'utf8');
     expect(new QualifierCheckpointStore({ filePath: invalid }).has()).toBe(false);
 
-    const terminalPhase = temporaryFile();
+    // A finished round keeps its table (with redacted keys) so the main draw
+    // survives a restart; `idle` is still not a valid checkpoint phase.
+    const finishedPhase = temporaryFile();
     writeFileSync(
-      terminalPhase,
+      finishedPhase,
       JSON.stringify({
         ...(asJson(checkpoint()) as Record<string, unknown>),
         phase: 'finished',
       }),
       'utf8',
     );
-    expect(new QualifierCheckpointStore({ filePath: terminalPhase }).has()).toBe(false);
+    const finishedStore = new QualifierCheckpointStore({ filePath: finishedPhase });
+    expect(finishedStore.has()).toBe(true);
+    expect(finishedStore.load()?.phase).toBe('finished');
+
+    const idlePhase = temporaryFile();
+    writeFileSync(
+      idlePhase,
+      JSON.stringify({
+        ...(asJson(checkpoint()) as Record<string, unknown>),
+        phase: 'idle',
+      }),
+      'utf8',
+    );
+    expect(new QualifierCheckpointStore({ filePath: idlePhase }).has()).toBe(false);
   });
 });

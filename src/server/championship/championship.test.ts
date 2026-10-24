@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ChampionshipArchive, ChampionshipState } from '../../shared/protocol';
 import type { ModelProvider } from '../providers/index';
+import { ProviderError } from '../providers/index';
 import { XiangqiGame } from '../xiangqi/index';
 import { parseChampionshipArchive } from './archive';
 import type {
@@ -1204,6 +1205,52 @@ describe('Championship archive hook', () => {
       error: '锦标赛内部错误，可继续锦标赛或重新发起',
       completedGames: 0,
     });
+  });
+
+  it('pauses when a key quota is exhausted and resumes after top-up', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const checkpointFile = createCheckpointFile();
+    let quotaCalls = 0;
+    const provider: ModelProvider = {
+      provider: 'openai',
+      async complete() {
+        quotaCalls += 1;
+        throw new ProviderError('额度不足（HTTP 429）：insufficient_quota', {
+          status: 429,
+          retryable: false,
+          quotaExceeded: true,
+        });
+      },
+    };
+    const championship = createChampionship({
+      providerFactory: () => provider,
+      checkpointStore: new ChampionshipCheckpointStore({ filePath: checkpointFile }),
+      // The first game starts normally; every later board is already terminal.
+      createInitialGame: scriptedFactory({ 1: 'fail' }, 'black'),
+    });
+
+    championship.start(startInput());
+    const paused = await waitFor(championship, (state) => state.phase === 'paused');
+
+    expect(paused.resumable).toBe(true);
+    expect(paused.error).toContain('额度不足');
+    expect(paused.error).toContain('继续锦标赛');
+    expect(paused.currentGameIds).toEqual([]);
+    expect(paused.completedGames).toBe(0);
+    expect(quotaCalls).toBe(1);
+
+    const saved = parseChampionshipCheckpoint(
+      JSON.parse(readFileSync(checkpointFile, 'utf8')) as unknown,
+    );
+    expect(saved?.phase).toBe('paused');
+    expect(saved?.games[0]?.status).toBe('canceled');
+
+    championship.resume();
+    const finished = await waitForEnd(championship);
+
+    expect(finished.phase).toBe('finished');
+    expect(finished.championModelId).not.toBeNull();
+    expect(quotaCalls).toBe(1);
   });
 
   it('archives an interrupted checkpoint when a new edition replaces it', async () => {

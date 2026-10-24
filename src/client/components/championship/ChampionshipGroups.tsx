@@ -49,6 +49,9 @@ function groupProgressLabel(
   if (phase === 'finished') {
     return '小组完赛';
   }
+  if (phase === 'paused') {
+    return done === 0 ? '未开赛' : '已暂停';
+  }
   if (phase === 'stopped' || phase === 'error' || phase === 'interrupted') {
     return done === 0 ? '未开赛' : '已中断';
   }

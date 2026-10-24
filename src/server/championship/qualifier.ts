@@ -84,6 +84,10 @@ const QUALIFIER_GAME_SETTINGS: GameSettings = {
 
 const CANCELED_MESSAGE = '入围赛提前终止';
 const FAILED_GAME_MESSAGE = '对局执行失败，已跳过该局';
+/** The suspended game is replayed after the quota problem is fixed. */
+const QUOTA_CANCELED_MESSAGE = '模型 API 额度不足，恢复后重赛';
+const QUOTA_PAUSED_MESSAGE =
+  '模型 API 额度不足，入围赛已暂停。请为相关模型充值或更换 API Key 后点击「继续入围赛」恢复比赛';
 const INTERNAL_ERROR_MESSAGE = '入围赛内部错误，可继续入围赛或重新发起';
 
 function isProcessedGame(game: ChampionshipGameView): boolean {
@@ -184,6 +188,8 @@ export class Qualifier {
   private lastFinishedGameId: string | null = null;
   private lastFinalState: ArenaState | null = null;
   private stopRequested = false;
+  /** Non-null while the run is suspended because a key's quota ran out. */
+  private pauseReason: string | null = null;
   private disposed = false;
 
   constructor(options: QualifierOptions = {}) {
@@ -246,6 +252,7 @@ export class Qualifier {
       resumable:
         (this.phase === 'stopped' ||
           this.phase === 'error' ||
+          this.phase === 'paused' ||
           this.phase === 'interrupted') &&
         this.entrants.length > 0 &&
         this.checkpointStore.has(),
@@ -356,6 +363,7 @@ export class Qualifier {
     this.phase = 'running';
     this.qualifierId = randomUUID();
     this.error = null;
+    this.pauseReason = null;
     this.startedAt = Date.now();
     this.finishedAt = null;
     this.concurrency = input.concurrency;
@@ -383,6 +391,7 @@ export class Qualifier {
     if (
       this.phase !== 'stopped' &&
       this.phase !== 'error' &&
+      this.phase !== 'paused' &&
       this.phase !== 'interrupted'
     ) {
       throw new QualifierConflictError('当前没有可继续的入围赛');
@@ -404,6 +413,7 @@ export class Qualifier {
     this.runToken += 1;
     const token = this.runToken;
     this.stopRequested = false;
+    this.pauseReason = null;
     this.abortController?.abort();
     this.abortController = new AbortController();
     this.phase = 'running';
@@ -480,12 +490,7 @@ export class Qualifier {
 
   private persistCheckpoint(): void {
     const phase = this.phase;
-    if (
-      !this.qualifierId ||
-      this.entrants.length === 0 ||
-      phase === 'idle' ||
-      phase === 'finished'
-    ) {
+    if (!this.qualifierId || this.entrants.length === 0 || phase === 'idle') {
       return;
     }
     if (this.runtimes.size !== this.entrants.length) {
@@ -733,6 +738,17 @@ export class Qualifier {
 
     if (this.stopRequested) {
       this.markRemainingCanceled(CANCELED_MESSAGE);
+      if (this.pauseReason) {
+        // Suspended by a quota error: keep the checkpoint so the user can top
+        // up the key and press 继续入围赛. The interrupted game is replayed.
+        this.phase = 'paused';
+        this.error = this.pauseReason;
+        this.finishedAt = null;
+        this.persistCheckpoint();
+        this.dropRuntimes();
+        this.emitState();
+        return;
+      }
       this.phase = 'stopped';
       this.finishedAt = Date.now();
       this.persistCheckpoint();
@@ -748,14 +764,48 @@ export class Qualifier {
 
     this.phase = 'finished';
     this.finishedAt = Date.now();
-    this.checkpointStore.clear();
-    this.checkpointSavedAt = null;
+    this.persistFinishedCheckpoint();
     this.dropRuntimes();
     this.emitState();
   }
 
+  /**
+   * Persist the completed qualifying table so the main-event draw still works
+   * after an app restart. Runtime setups are redacted because a finished round
+   * never resumes: the local file must not retain API keys.
+   */
+  private persistFinishedCheckpoint(): void {
+    const runtimes = this.runtimes;
+    this.runtimes = new Map<string, ModelSetup>(
+      [...runtimes].map(([id, setup]) => [id, { ...setup, apiKey: '' }]),
+    );
+    try {
+      this.persistCheckpoint();
+    } finally {
+      this.runtimes = runtimes;
+    }
+  }
+
   private dropActiveGame(gameId: string): void {
     this.currentGameIds = this.currentGameIds.filter((id) => id !== gameId);
+  }
+
+  /**
+   * Suspend the qualifying round after a provider reports an exhausted quota.
+   * In-flight games are canceled and replayed on resume; the checkpoint keeps
+   * every decided game plus the runtime setups needed to continue.
+   */
+  private requestQuotaPause(detail: string): void {
+    if (this.pauseReason) return;
+    this.pauseReason = detail
+      ? `${QUOTA_PAUSED_MESSAGE}（${detail}）`
+      : QUOTA_PAUSED_MESSAGE;
+    this.stopRequested = true;
+    for (const arena of this.activeArenas.values()) {
+      arena.dispose();
+    }
+    this.abortController?.abort();
+    this.emitState();
   }
 
   private async runGame(game: ChampionshipGameView, token: number): Promise<void> {
@@ -797,6 +847,20 @@ export class Qualifier {
 
     this.lastFinishedGameId = game.id;
     this.lastFinalState = finalState;
+
+    // An exhausted quota suspends the qualifying round instead of being
+    // recorded as a failed game; the interrupted game is replayed on resume.
+    if (finalState.phase === 'error' && finalState.error?.quota) {
+      game.status = 'canceled';
+      game.error = QUOTA_CANCELED_MESSAGE;
+      game.failedSide = finalState.error.side;
+      game.finishedAt = Date.now();
+      game.durationMs = Math.max(0, game.finishedAt - (game.startedAt ?? game.finishedAt));
+      this.dropActiveGame(game.id);
+      this.requestQuotaPause(finalState.error.message);
+      return;
+    }
+
     applyArenaTotals(game, finalState);
     if (finalState.phase === 'finished' && finalState.result) {
       game.status = 'finished';

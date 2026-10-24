@@ -1,7 +1,7 @@
 import type { ModelSetup } from '../../shared/protocol';
 import { nativeReasoningEffort } from '../../shared/protocol';
 import { resolveEndpoint } from './endpoint';
-import { asNonNegativeInt, asRecord, requestJson } from './http';
+import { asNonNegativeInt, asRecord, isQuotaExceeded, requestJson } from './http';
 import { thinkingTimeoutMs } from './thinking';
 import {
   ProviderError,
@@ -112,7 +112,11 @@ async function complete(
       typeof topLevelError.message === 'string'
         ? topLevelError.message
         : '模型服务在响应中返回了错误';
-    throw new ProviderError(`模型服务错误：${message}`, { retryable: true });
+    const quotaExceeded = isQuotaExceeded(null, message);
+    throw new ProviderError(`模型服务错误：${message}`, {
+      retryable: !quotaExceeded,
+      quotaExceeded,
+    });
   }
 
   const { text, refusal } = firstChoiceText(data);

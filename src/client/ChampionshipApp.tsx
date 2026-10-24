@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ChampionshipPhase,
+  ChampionshipSetupSaveRequest,
   ModelProfileView,
   QualifierGroupId,
   QualifierStartRequest,
@@ -14,6 +15,8 @@ import {
 import { useChampionship } from './hooks/useChampionship';
 import { useQualifier } from './hooks/useQualifier';
 import { useModelProfiles } from './hooks/useModelProfiles';
+import { fetchChampionshipSetup, putChampionshipSetup } from './api';
+import { ensureDraw, fromSetupDrafts, toSetupDrafts } from './lib/championshipSetup';
 import type { PresetKey } from './presets';
 import type {
   ChampionshipDraft,
@@ -65,6 +68,9 @@ import { QualifierSetup } from './components/championship/QualifierSetup';
 
 const FOCUS_FIELD_ORDER = ['profile', 'name', 'baseUrl', 'model', 'provider'] as const;
 
+/** Debounce the automatic setup save; every edit restarts the timer. */
+const SETUP_SAVE_DEBOUNCE_MS = 600;
+
 function emptyValidation(): ChampionshipValidation {
   return { ok: true, draftErrors: {}, formErrors: [] };
 }
@@ -89,6 +95,90 @@ export default function ChampionshipApp() {
   const [validation, setValidation] = useState<ChampionshipValidation>(emptyValidation);
   const [notice, setNotice] = useState<string | null>(null);
   const [reconfiguring, setReconfiguring] = useState(false);
+
+  // Setup persistence: restore the last saved seats/draw/concurrency once,
+  // then debounce-save every change. `editedSetupRef` keeps a slow restore from
+  // overwriting what the user has already typed.
+  const editedSetupRef = useRef(false);
+  const setupLoadCompletedRef = useRef(false);
+  const lastPersistedSignatureRef = useRef<string | null>(null);
+
+  const markSetupEdited = () => {
+    editedSetupRef.current = true;
+  };
+
+  const setupSignature = useMemo(
+    () => JSON.stringify({ drafts: toSetupDrafts(drafts), draw, concurrency }),
+    [drafts, draw, concurrency],
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    void fetchChampionshipSetup()
+      .then((response) => {
+        if (disposed) return;
+        const setup = response.setup;
+        // Never clobber edits the user made while the request was in flight.
+        if (!setup || editedSetupRef.current) return;
+
+        const restoredDrafts = fromSetupDrafts(setup.drafts);
+        const restoredDraw = ensureDraw(setup.draw);
+        // Record the restored signature first so the save effect treats it as
+        // already persisted instead of writing the same snapshot back.
+        lastPersistedSignatureRef.current = JSON.stringify({
+          drafts: toSetupDrafts(restoredDrafts),
+          draw: restoredDraw,
+          concurrency: setup.concurrency,
+        });
+        setDrafts(restoredDrafts);
+        setDraw(restoredDraw);
+        setConcurrency(setup.concurrency);
+      })
+      .catch((error: unknown) => {
+        console.warn(
+          '[championship] 读取已保存的配置失败：',
+          error instanceof Error ? error.message : error,
+        );
+      })
+      .finally(() => {
+        if (!disposed) setupLoadCompletedRef.current = true;
+      });
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Saving before the initial load would overwrite the persisted setup with
+    // the freshly generated default seats.
+    if (!setupLoadCompletedRef.current) return;
+    if (setupSignature === lastPersistedSignatureRef.current) return;
+
+    const request: ChampionshipSetupSaveRequest = {
+      drafts: toSetupDrafts(drafts),
+      draw,
+      concurrency,
+    };
+    const timer = setTimeout(() => {
+      void putChampionshipSetup(request)
+        .then(() => {
+          lastPersistedSignatureRef.current = setupSignature;
+        })
+        .catch((error: unknown) => {
+          // A failed autosave must never interrupt the page; the next edit retries.
+          console.warn(
+            '[championship] 保存配置失败：',
+            error instanceof Error ? error.message : error,
+          );
+        });
+    }, SETUP_SAVE_DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timer);
+    };
+    // setupSignature is derived from drafts/draw/concurrency and captures all
+    // three values used by the request.
+  }, [setupSignature]);
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -132,9 +222,16 @@ export default function ChampionshipApp() {
   const qualifiedSignature =
     qualifiedDrafts?.map((draft) => draft.id).join('|') ?? '';
 
+  const qualifiedSignatureRef = useRef<string | null>(null);
   useEffect(() => {
-    // A fresh qualifying result invalidates the previous draw.
-    setDraw(null);
+    const previous = qualifiedSignatureRef.current;
+    qualifiedSignatureRef.current = qualifiedSignature;
+    // A changed qualifying result invalidates the previous draw. The first
+    // non-empty signature comes from hydrating a saved setup after a restart,
+    // so it must keep the persisted draw instead of clearing it.
+    if (previous !== null && previous !== '' && previous !== qualifiedSignature) {
+      setDraw(null);
+    }
   }, [qualifiedSignature]);
 
   // The server only returns groups/series after start. Before that, render the
@@ -241,11 +338,13 @@ export default function ChampionshipApp() {
   };
 
   const resetDraw = () => {
+    markSetupEdited();
     setDraw(null);
     setNotice(null);
   };
 
   const updateDraft = (id: string, patch: Partial<TournamentModelDraft>) => {
+    markSetupEdited();
     setDrafts((previous) =>
       previous.map((draft) => {
         if (draft.id !== id) {
@@ -270,6 +369,7 @@ export default function ChampionshipApp() {
   };
 
   const applyDraftPreset = (id: string, preset: PresetKey) => {
+    markSetupEdited();
     setDrafts((previous) =>
       previous.map((draft) =>
         draft.id === id ? applyPresetToChampionshipDraft(draft, preset) : draft,
@@ -280,6 +380,7 @@ export default function ChampionshipApp() {
   };
 
   const applyDraftProfile = (id: string, profileId: string | null) => {
+    markSetupEdited();
     if (!profileId) {
       setDrafts((previous) =>
         previous.map((draft) =>
@@ -318,6 +419,7 @@ export default function ChampionshipApp() {
   };
 
   const handleFillProfiles = () => {
+    markSetupEdited();
     if (library.profiles.length === 0) {
       setNotice('模型库暂无已保存配置，请先到模型库保存常用模型，再填充空位。');
       return;
@@ -334,6 +436,7 @@ export default function ChampionshipApp() {
   };
 
   const handleQuickFillPool = (pool: number, profiles: readonly ModelProfileView[]) => {
+    markSetupEdited();
     try {
       setDrafts(fillChampionshipPoolWithProfiles(drafts, pool, profiles));
       setValidation(emptyValidation());
@@ -348,6 +451,7 @@ export default function ChampionshipApp() {
     group: QualifierGroupId,
     profiles: readonly ModelProfileView[],
   ) => {
+    markSetupEdited();
     try {
       setDrafts(fillChampionshipQualifierGroupWithProfiles(drafts, group, profiles));
       setValidation(emptyValidation());
@@ -385,6 +489,7 @@ export default function ChampionshipApp() {
   };
 
   const handleDraw = () => {
+    markSetupEdited();
     const result = validateChampionshipDrafts(drafts, library.profiles);
     setValidation(result);
     setNotice(null);
@@ -440,6 +545,7 @@ export default function ChampionshipApp() {
   };
 
   const handleReconfigure = () => {
+    markSetupEdited();
     if (reconfiguring) {
       setReconfiguring(false);
       return;
@@ -566,7 +672,10 @@ export default function ChampionshipApp() {
                     onQuickFill={handleQuickFillQualifierGroup}
                   />
                 }
-                onConcurrencyChange={setConcurrency}
+                onConcurrencyChange={(value) => {
+                  markSetupEdited();
+                  setConcurrency(value);
+                }}
                 onPoolChange={setActivePool}
                 onFillProfiles={handleFillProfiles}
                 onQuickFill={handleQuickFillPool}

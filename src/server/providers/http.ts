@@ -70,6 +70,21 @@ function retryableStatus(status: number): boolean {
   return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
 }
 
+const QUOTA_PATTERN =
+  /(insufficient[_\s-]?quota|current quota|quota exceeded|exceeded your quota|credit balance|billing|insufficient balance|balance is too low|余额|额度|配额|欠费|充值)/i;
+
+/**
+ * Providers report an exhausted key differently (OpenAI 429 `insufficient_quota`,
+ * Anthropic billing errors, gateways that return 402/403). A quota problem must
+ * suspend a competition instead of being counted as a failed game, so classify
+ * it separately from ordinary rate limits: retrying the same key cannot help.
+ */
+export function isQuotaExceeded(status: number | null, message: string): boolean {
+  if (status === 402) return true;
+  if (!message) return false;
+  return QUOTA_PATTERN.test(message);
+}
+
 export async function requestJson(options: JsonRequestOptions): Promise<unknown> {
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const timeoutSignal = AbortSignal.timeout(timeoutMs);
@@ -123,9 +138,14 @@ export async function requestJson(options: JsonRequestOptions): Promise<unknown>
   if (!response.ok) {
     const detail = providerMessageFromBody(text).slice(0, MAX_ERROR_TEXT);
     const suffix = detail ? `：${detail}` : '';
+    const quotaExceeded = isQuotaExceeded(response.status, detail);
     throw new ProviderError(
       `${statusLabel(response.status)}（HTTP ${response.status}）${suffix}`,
-      { status: response.status, retryable: retryableStatus(response.status) },
+      {
+        status: response.status,
+        retryable: quotaExceeded ? false : retryableStatus(response.status),
+        quotaExceeded,
+      },
     );
   }
 

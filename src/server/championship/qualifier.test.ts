@@ -17,6 +17,7 @@ import {
   CHAMPIONSHIP_QUALIFIER_GROUP_SIZE,
 } from '../../shared/protocol';
 import type { ModelProvider } from '../providers/index';
+import { ProviderError } from '../providers/index';
 import { XiangqiGame } from '../xiangqi/index';
 import { HistoryStore } from '../history/history';
 import type { QualifierGameCompletion, QualifierOptions } from './qualifier';
@@ -361,7 +362,7 @@ describe('Qualifier lifecycle', () => {
     expect(state.startedAt).not.toBeNull();
     expect(state.finishedAt).not.toBeNull();
     expect(state.resumable).toBe(false);
-    expect(state.checkpointSavedAt).toBeNull();
+    expect(state.checkpointSavedAt).not.toBeNull();
     expect(state.currentGameIds).toEqual([]);
     expect(providerCalls).toBe(0);
 
@@ -422,8 +423,12 @@ describe('Qualifier lifecycle', () => {
       expect(completion.black.groupId).toBe(completion.game.groupId);
     }
 
-    // The finished run clears its breakpoint and keeps no secrets public.
-    expect(checkpointStore.has()).toBe(false);
+    // The finished run keeps a key-redacted breakpoint so a restart can still
+    // draw the main event without replaying the qualifying round.
+    const savedFinished = checkpointStore.load();
+    expect(savedFinished).toMatchObject({ phase: 'finished', qualifierId: state.qualifierId });
+    expect(savedFinished?.games).toHaveLength(20);
+    expect(JSON.stringify(savedFinished)).not.toContain('secret-');
     expect(JSON.stringify(state)).not.toContain('secret-');
     expect(JSON.stringify(state)).not.toContain('apiKey');
     expect(JSON.stringify(completions)).not.toContain('secret-');
@@ -849,8 +854,37 @@ describe('Qualifier checkpoint and resume', () => {
       expect(final.games.find((game) => game.id === gameId)?.finishedAt).toBe(finishedAt);
     }
     expect(secondCompletions).toHaveLength(17);
-    expect(secondStore.has()).toBe(false);
-    expect(final.checkpointSavedAt).toBeNull();
+    expect(secondStore.load()?.phase).toBe('finished');
+    expect(final.checkpointSavedAt).not.toBeNull();
+  });
+
+  it('restores a finished qualifying table so the main draw survives a restart', async () => {
+    const checkpointFile = createCheckpointFile();
+    const first = createQualifier({
+      providerFactory: () => unusedProvider,
+      createInitialGame: () => XiangqiGame.fromFen(MATE_RED_WINS),
+      checkpointStore: new QualifierCheckpointStore({ filePath: checkpointFile }),
+    });
+    const done = waitForEnd(first);
+    first.start(startInput());
+    const finished = await done;
+    expect(finished.phase).toBe('finished');
+
+    const second = createQualifier({
+      providerFactory: () => unusedProvider,
+      checkpointStore: new QualifierCheckpointStore({ filePath: checkpointFile }),
+    });
+    const restored = second.getState();
+    expect(restored).toMatchObject({
+      phase: 'finished',
+      qualifierId: finished.qualifierId,
+      completedGames: 20,
+      resumable: false,
+    });
+    expect(restored.qualifiedModelIds).toEqual(finished.qualifiedModelIds);
+    expect(restored.entrants).toHaveLength(CHAMPIONSHIP_QUALIFIER_ENTRANTS);
+    expect(restored.groups.every((group) => group.complete)).toBe(true);
+    expect(JSON.stringify(restored)).not.toContain('secret-');
   });
 
   it('restores a running breakpoint as interrupted and resumes it', async () => {
@@ -1086,6 +1120,50 @@ describe('Qualifier history', () => {
       }),
     ).toBeNull();
     expect(store.size).toBe(1);
+  });
+
+  it('pauses when a key quota is exhausted and resumes after top-up', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const checkpointFile = createCheckpointFile();
+    let quotaCalls = 0;
+    const provider: ModelProvider = {
+      provider: 'openai',
+      async complete() {
+        quotaCalls += 1;
+        throw new ProviderError('额度不足（HTTP 429）：insufficient_quota', {
+          status: 429,
+          retryable: false,
+          quotaExceeded: true,
+        });
+      },
+    };
+    const qualifier = createQualifier({
+      providerFactory: () => provider,
+      checkpointStore: new QualifierCheckpointStore({ filePath: checkpointFile }),
+      // The first game starts normally; every later board is already terminal.
+      createInitialGame: scriptedFactory({ 1: 'fail' }, 'black'),
+    });
+
+    qualifier.start(startInput());
+    const paused = await waitFor(qualifier, (state) => state.phase === 'paused');
+
+    expect(paused.resumable).toBe(true);
+    expect(paused.error).toContain('额度不足');
+    expect(paused.error).toContain('继续入围赛');
+    expect(quotaCalls).toBe(1);
+
+    const saved = parseQualifierCheckpoint(
+      JSON.parse(readFileSync(checkpointFile, 'utf8')) as unknown,
+    );
+    expect(saved?.phase).toBe('paused');
+    expect(saved?.games[0]?.status).toBe('canceled');
+
+    qualifier.resume();
+    const finished = await waitForEnd(qualifier);
+
+    expect(finished.phase).toBe('finished');
+    expect(finished.qualifiedModelIds).toHaveLength(4);
+    expect(quotaCalls).toBe(1);
   });
 
   it('persists qualifying records and reloads them across store instances', async () => {

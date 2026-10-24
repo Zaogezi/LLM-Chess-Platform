@@ -136,7 +136,7 @@ export function QualifierSetup({
     startLabel = '启动中…';
   } else if (phase === 'finished') {
     startLabel = '重新入围赛';
-  } else if (phase === 'stopped' || phase === 'error' || phase === 'interrupted') {
+  } else if (phase === 'stopped' || phase === 'error' || phase === 'paused' || phase === 'interrupted') {
     startLabel = '重新发起';
   }
 

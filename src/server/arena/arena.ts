@@ -408,6 +408,13 @@ export class Arena {
           return;
         }
 
+        // An exhausted quota is not the game's result: surface it so the
+        // scheduler can suspend the competition until the key is usable again.
+        if (error instanceof ProviderError && error.quotaExceeded) {
+          this.failTurn(side, message, true);
+          return;
+        }
+
         const retryable = error instanceof ProviderError ? error.retryable : false;
 
         if (retryable && attempt < this.settings.maxAttempts) {
@@ -561,11 +568,11 @@ export class Arena {
     return `${safe}${unsupportedHint}`;
   }
 
-  private failTurn(side: Side, message: string): void {
+  private failTurn(side: Side, message: string, quota = false): void {
     if (this.phase === 'idle' || this.phase === 'finished') return;
 
     this.phase = 'error';
-    this.errorState = { side, message };
+    this.errorState = quota ? { side, message, quota: true } : { side, message };
     const view = this.models[side];
     if (view) {
       view.thinking = false;

@@ -33,6 +33,8 @@ export class ProviderError extends Error {
   /** The request exceeded its per-step wait limit rather than failing outright. */
   readonly timeout: boolean;
   readonly timeoutSeconds: number | null;
+  /** The provider rejected the request because the key's quota/credit ran out. */
+  readonly quotaExceeded: boolean;
 
   constructor(
     message: string,
@@ -41,6 +43,7 @@ export class ProviderError extends Error {
       retryable?: boolean;
       timeout?: boolean;
       timeoutSeconds?: number | null;
+      quotaExceeded?: boolean;
     } = {},
   ) {
     super(message);
@@ -49,5 +52,6 @@ export class ProviderError extends Error {
     this.retryable = options.retryable ?? false;
     this.timeout = options.timeout ?? false;
     this.timeoutSeconds = options.timeoutSeconds ?? null;
+    this.quotaExceeded = options.quotaExceeded ?? false;
   }
 }

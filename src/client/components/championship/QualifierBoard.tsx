@@ -36,6 +36,9 @@ function groupStatusLabel(group: QualifierGroupView, phase: QualifierState['phas
   if (phase === 'running') {
     return '进行中';
   }
+  if (phase === 'paused') {
+    return '已暂停';
+  }
   if (phase === 'stopped' || phase === 'error' || phase === 'interrupted') {
     return '已中断';
   }

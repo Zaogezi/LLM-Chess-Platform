@@ -6,7 +6,11 @@ import express, {
   type Request,
   type Response,
 } from 'express';
-import type { ArenaState, ChampionshipArchiveListResponse } from '../shared/protocol';
+import type {
+  ArenaState,
+  ChampionshipArchiveListResponse,
+  ChampionshipSetupResponse,
+} from '../shared/protocol';
 import type { ProviderFactory } from './providers/index';
 import { ValidationError, validateStartRequest } from './providers/validate';
 import { Arena, ArenaConflictError } from './arena/arena';
@@ -17,6 +21,10 @@ import { Championship, ChampionshipConflictError } from './championship/champion
 import { ChampionshipCheckpointStore } from './championship/checkpoint';
 import { Qualifier, QualifierConflictError } from './championship/qualifier';
 import { QualifierCheckpointStore } from './championship/qualifierCheckpoint';
+import {
+  ChampionshipSetupStore,
+  parseChampionshipSetupSaveRequest,
+} from './championship/setup';
 import { validateQualifierStartRequest } from './championship/qualifierValidate';
 import { validateChampionshipStartRequest } from './championship/validate';
 import { HistoryQueryError, HistoryStore, validateHistoryQuery } from './history/history';
@@ -42,6 +50,8 @@ export interface CreateAppOptions {
   checkpointStore?: ChampionshipCheckpointStore;
   /** Persistent qualifying-round checkpoint store; defaults to in-memory. */
   qualifierCheckpointStore?: QualifierCheckpointStore;
+  /** Persisted pre-start championship setup; defaults to in-memory. */
+  setupStore?: ChampionshipSetupStore;
   /** Historical championship editions; defaults to an in-memory store. */
   archiveStore?: ChampionshipArchiveStore;
   history?: HistoryStore;
@@ -58,6 +68,7 @@ export interface AppBundle {
   championship: Championship;
   qualifier: Qualifier;
   archiveStore: ChampionshipArchiveStore;
+  setupStore: ChampionshipSetupStore;
   history: HistoryStore;
   profiles: ModelProfileStore;
 }
@@ -130,6 +141,8 @@ export function createApp(options: CreateAppOptions = {}): AppBundle {
   const profiles = options.profiles ?? new ModelProfileStore();
   const archiveStore =
     options.archiveStore ?? new ChampionshipArchiveStore({ filePath: null });
+  const setupStore =
+    options.setupStore ?? new ChampionshipSetupStore({ filePath: null });
   const arena =
     options.arena ??
     new Arena({
@@ -357,6 +370,27 @@ export function createApp(options: CreateAppOptions = {}): AppBundle {
       );
       sendError(res, 500, '继续锦标赛失败，请稍后重试');
     }
+  });
+
+  api.get('/championship/setup', (req, res) => {
+    const response: ChampionshipSetupResponse = { setup: setupStore.load() };
+    res.json(response);
+  });
+
+  api.put('/championship/setup', (req, res) => {
+    const request = parseChampionshipSetupSaveRequest(req.body);
+    if (!request) {
+      sendError(res, 400, '锦标赛配置数据不完整或格式不正确。');
+      return;
+    }
+    const setup = setupStore.save(request);
+    if (!setup) {
+      console.error('[championship] failed to save setup snapshot');
+      sendError(res, 500, '保存锦标赛配置失败，请稍后重试。');
+      return;
+    }
+    const response: ChampionshipSetupResponse = { setup };
+    res.json(response);
   });
 
   api.get('/championship/qualifier/state', (req, res) => {
@@ -629,5 +663,15 @@ export function createApp(options: CreateAppOptions = {}): AppBundle {
     next(error);
   });
 
-  return { app, arena, tournament, championship, qualifier, archiveStore, history, profiles };
+  return {
+    app,
+    arena,
+    tournament,
+    championship,
+    qualifier,
+    archiveStore,
+    setupStore,
+    history,
+    profiles,
+  };
 }
