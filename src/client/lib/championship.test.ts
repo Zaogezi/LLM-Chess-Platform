@@ -474,6 +474,31 @@ describe('championship plan and start request', () => {
     expect(seriesSeedPlaceholder(series[6]!, 'right')).toBe('半决赛 2 胜者');
   });
 
+  it('carries prompt level and token caps into the start request', () => {
+    const drafts = createDefaultChampionshipDrafts();
+    drafts[0] = {
+      ...drafts[0]!,
+      promptLevel: 'quick',
+      maxThinkingTokens: 1024,
+      maxCompletionTokens: 4096,
+      requestTimeoutSeconds: 300,
+    };
+    const fixture = drawDrafts(drafts);
+    const draw = createChampionshipDraw(fixture, deterministicRandom(5));
+    const request = toChampionshipStartRequest(fixture, draw);
+
+    expect(request.entrants[0]).toMatchObject({
+      promptLevel: 'quick',
+      maxThinkingTokens: 1024,
+      maxCompletionTokens: 4096,
+      requestTimeoutSeconds: 300,
+    });
+    // Unset overrides stay omitted, matching the saved-profile defaults.
+    expect(request.entrants[1]).not.toHaveProperty('promptLevel');
+    expect(request.entrants[1]).not.toHaveProperty('maxThinkingTokens');
+    expect(request.entrants[1]).not.toHaveProperty('maxCompletionTokens');
+  });
+
   it('sends profile references for saved seats', () => {
     const drafts = createDefaultChampionshipDrafts();
     const withProfile = updateChampionshipDraft(drafts[0]!, {

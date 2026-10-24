@@ -32,6 +32,12 @@ export interface ProfileForm {
   apiKey: string;
   showKey: boolean;
   clearKey: boolean;
+  /** In-app prompt intensity; null follows the API thinking level. */
+  promptLevel: ThinkingLevel | null;
+  /** Hard thinking-token cap; null uses the provider/tier default. */
+  maxThinkingTokens: number | null;
+  /** Hard total-output cap; null sends no cap. */
+  maxCompletionTokens: number | null;
   requestTimeoutSeconds: number | null;
 }
 
@@ -40,6 +46,8 @@ export interface ProfileFormErrors {
   provider?: string;
   baseUrl?: string;
   model?: string;
+  maxThinkingTokens?: string;
+  maxCompletionTokens?: string;
   requestTimeoutSeconds?: string;
 }
 
@@ -112,6 +120,9 @@ export function createProfileForm(): ProfileForm {
     apiKey: '',
     showKey: false,
     clearKey: false,
+    promptLevel: config.promptLevel,
+    maxThinkingTokens: config.maxThinkingTokens,
+    maxCompletionTokens: config.maxCompletionTokens,
     requestTimeoutSeconds: null,
   };
 }
@@ -129,6 +140,9 @@ export function profileToForm(profile: ModelProfileView): ProfileForm {
     apiKey: '',
     showKey: false,
     clearKey: false,
+    promptLevel: profile.promptLevel ?? null,
+    maxThinkingTokens: profile.maxThinkingTokens ?? null,
+    maxCompletionTokens: profile.maxCompletionTokens ?? null,
     requestTimeoutSeconds: profile.requestTimeoutSeconds ?? null,
   };
 }
@@ -145,6 +159,9 @@ export function applyProfileFormPreset(form: ProfileForm, presetKey: PresetKey):
     thinkingLevel: 'balanced',
     thinkingOptions: [...DEFAULT_THINKING_LEVELS],
     apiReasoning: preset.provider === 'openai',
+    promptLevel: null,
+    maxThinkingTokens: null,
+    maxCompletionTokens: null,
     requestTimeoutSeconds: null,
     name:
       currentName.length === 0 || currentName === presetByKey(form.preset).label
@@ -175,6 +192,9 @@ export function toProfileCreateRequest(form: ProfileForm): ModelProfileCreateReq
     thinkingLevel: form.thinkingLevel,
     thinkingLevels: [...form.thinkingOptions],
     apiReasoning: form.apiReasoning,
+    promptLevel: form.promptLevel,
+    maxThinkingTokens: form.maxThinkingTokens,
+    maxCompletionTokens: form.maxCompletionTokens,
     requestTimeoutSeconds: form.requestTimeoutSeconds,
     apiKey: form.apiKey.trim(),
   };
@@ -192,6 +212,9 @@ export function toProfileUpdateRequest(
     thinkingLevel: form.thinkingLevel,
     thinkingLevels: [...form.thinkingOptions],
     apiReasoning: form.apiReasoning,
+    promptLevel: form.promptLevel,
+    maxThinkingTokens: form.maxThinkingTokens,
+    maxCompletionTokens: form.maxCompletionTokens,
     requestTimeoutSeconds: form.requestTimeoutSeconds,
   };
 
@@ -227,6 +250,9 @@ export function applyProfileToGameForm(
     showKey: boolean;
     preset: PresetKey;
     requestTimeoutSeconds?: number | null;
+    promptLevel?: ThinkingLevel | null;
+    maxThinkingTokens?: number | null;
+    maxCompletionTokens?: number | null;
   },
   profile: ModelProfileView,
 ): typeof form {
@@ -241,6 +267,9 @@ export function applyProfileToGameForm(
     apiReasoning: profile.apiReasoning,
     apiKey: '',
     showKey: false,
+    promptLevel: profile.promptLevel ?? null,
+    maxThinkingTokens: profile.maxThinkingTokens ?? null,
+    maxCompletionTokens: profile.maxCompletionTokens ?? null,
     requestTimeoutSeconds: profile.requestTimeoutSeconds ?? null,
   };
 }

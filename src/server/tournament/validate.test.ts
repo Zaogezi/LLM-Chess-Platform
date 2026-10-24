@@ -71,6 +71,10 @@ describe('validateTournamentStartRequest', () => {
           displayName: '库中模型',
           thinkingLevel: 'balanced' as const,
           apiReasoning: false,
+          promptLevel: 'quick',
+          maxThinkingTokens: 2048,
+          maxCompletionTokens: 4096,
+          requestTimeoutSeconds: 120,
         };
       },
     };
@@ -78,7 +82,16 @@ describe('validateTournamentStartRequest', () => {
     const input = validateTournamentStartRequest(
       {
         models: [
-          { name: '甲', profileId: 'saved-a', thinkingLevel: 'deep', apiReasoning: true },
+          {
+            name: '甲',
+            profileId: 'saved-a',
+            thinkingLevel: 'deep',
+            apiReasoning: true,
+            promptLevel: 'deep',
+            maxThinkingTokens: 8192,
+            maxCompletionTokens: 16384,
+            requestTimeoutSeconds: 300,
+          },
           { name: '乙', profileId: 'saved-a' },
         ],
         gamesPerPair: 2,
@@ -93,11 +106,73 @@ describe('validateTournamentStartRequest', () => {
       displayName: '库中模型',
       thinkingLevel: 'deep',
       apiReasoning: true,
+      promptLevel: 'deep',
+      maxThinkingTokens: 8192,
+      maxCompletionTokens: 16384,
+      requestTimeoutSeconds: 300,
     });
     expect(input.models[1]?.setup).toMatchObject({
       thinkingLevel: 'balanced',
       apiReasoning: false,
+      promptLevel: 'quick',
+      maxThinkingTokens: 2048,
+      maxCompletionTokens: 4096,
+      requestTimeoutSeconds: 120,
     });
+  });
+
+  it('rejects out-of-range token caps on a model-library override', () => {
+    const profiles = {
+      resolveSetup: () => ({
+        provider: 'openai' as const,
+        baseUrl: 'https://saved.test/v1',
+        model: 'saved-model',
+        apiKey: 'saved-secret',
+        thinkingLevel: 'balanced',
+      }),
+    };
+    for (const patch of [
+      { maxThinkingTokens: 1023 },
+      { maxThinkingTokens: 32769 },
+      { maxCompletionTokens: 255 },
+      { maxCompletionTokens: 131073 },
+    ]) {
+      expect(() =>
+        validateTournamentStartRequest(
+          {
+            models: [model('Alpha'), { name: 'Beta', profileId: 'saved-a', ...patch }],
+            gamesPerPair: 1,
+          },
+          profiles,
+        ),
+      ).toThrow(ValidationError);
+    }
+  });
+
+  it('rejects a profile override whose output cap does not exceed the thinking cap', () => {
+    const profiles = {
+      resolveSetup: () => ({
+        provider: 'openai' as const,
+        baseUrl: 'https://saved.test/v1',
+        model: 'saved-model',
+        apiKey: 'saved-secret',
+        thinkingLevel: 'balanced',
+        apiReasoning: true,
+        maxThinkingTokens: 4096,
+      }),
+    };
+    expect(() =>
+      validateTournamentStartRequest(
+        {
+          models: [
+            model('Alpha'),
+            { name: 'Beta', profileId: 'saved-a', maxCompletionTokens: 4096 },
+          ],
+          gamesPerPair: 1,
+        },
+        profiles,
+      ),
+    ).toThrow(/必须大于最大思考 token/);
   });
 
   it('rejects missing or unknown saved model entrants', () => {

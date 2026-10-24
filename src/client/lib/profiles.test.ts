@@ -93,6 +93,63 @@ describe('model profile form helpers', () => {
     expect(applied.requestTimeoutSeconds).toBe(300);
   });
 
+  it('carries prompt level and token caps through forms and requests', () => {
+    const richProfile: ModelProfileView = {
+      ...profile,
+      promptLevel: 'quick',
+      maxThinkingTokens: 4096,
+      maxCompletionTokens: 8192,
+    };
+    const form = profileToForm(richProfile);
+    expect(form.promptLevel).toBe('quick');
+    expect(form.maxThinkingTokens).toBe(4096);
+    expect(form.maxCompletionTokens).toBe(8192);
+    expect(toProfileCreateRequest(form)).toMatchObject({
+      promptLevel: 'quick',
+      maxThinkingTokens: 4096,
+      maxCompletionTokens: 8192,
+    });
+    expect(toProfileUpdateRequest(form, true)).toMatchObject({
+      promptLevel: 'quick',
+      maxThinkingTokens: 4096,
+      maxCompletionTokens: 8192,
+    });
+
+    const applied = applyProfileToGameForm(createProfileForm(), richProfile);
+    expect(applied.promptLevel).toBe('quick');
+    expect(applied.maxThinkingTokens).toBe(4096);
+    expect(applied.maxCompletionTokens).toBe(8192);
+  });
+
+  it('renders old profiles without the new fields as follow / no limit', () => {
+    const form = profileToForm(profile);
+    expect(form.promptLevel).toBeNull();
+    expect(form.maxThinkingTokens).toBeNull();
+    expect(form.maxCompletionTokens).toBeNull();
+
+    const created = toProfileCreateRequest(form);
+    expect(created).toMatchObject({
+      promptLevel: null,
+      maxThinkingTokens: null,
+      maxCompletionTokens: null,
+    });
+  });
+
+  it('surfaces token-cap range and cross-field errors through the profile form', () => {
+    const form = profileToForm(profile);
+    form.provider = 'openai';
+    form.apiReasoning = true;
+
+    form.maxThinkingTokens = 512;
+    expect(validateProfileForm(form).maxThinkingTokens).toMatch(/最大思考 token/);
+    form.maxThinkingTokens = 4096;
+    form.maxCompletionTokens = 4096;
+    expect(validateProfileForm(form).maxCompletionTokens).toMatch(/必须大于最大思考 token/);
+
+    form.maxCompletionTokens = 8192;
+    expect(validateProfileForm(form).maxCompletionTokens).toBeUndefined();
+  });
+
   it('applies A profile to game forms without carrying a browser key', () => {
     const form = createProfileForm();
     form.apiKey = 'temporary-browser-key';

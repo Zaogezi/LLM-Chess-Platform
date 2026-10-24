@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PROMPT_TIER_LABELS,
+  effectivePromptLevel,
   isThinkingOff,
   nativeReasoningEffort,
   nativeThinkingBudget,
   requestTimeoutSecondsFor,
+  thinkingBudgetTokens,
   thinkingTimeoutSecondsFor,
   thinkingTierOf,
 } from './protocol';
@@ -48,5 +51,24 @@ describe('thinking level mapping', () => {
     expect(nativeThinkingBudget('high')).toBe(4096);
     expect(nativeThinkingBudget('quick')).toBe(1024);
     expect(nativeThinkingBudget('off')).toBeNull();
+  });
+
+  it('resolves the in-app prompt level independently', () => {
+    expect(effectivePromptLevel('high')).toBe('high');
+    expect(effectivePromptLevel('high', 'quick')).toBe('quick');
+    expect(effectivePromptLevel('high', null)).toBe('high');
+    expect(effectivePromptLevel(undefined, undefined)).toBe('balanced');
+    expect(PROMPT_TIER_LABELS).toEqual({
+      quick: '精简',
+      balanced: '标准',
+      deep: '详尽',
+    });
+  });
+
+  it('applies explicit thinking-token budgets on top of the tier budget', () => {
+    expect(thinkingBudgetTokens('quick')).toBe(1024);
+    expect(thinkingBudgetTokens('quick', 1500)).toBe(1500);
+    expect(thinkingBudgetTokens('quick', null)).toBe(1024);
+    expect(thinkingBudgetTokens('off', 1500)).toBeNull();
   });
 });

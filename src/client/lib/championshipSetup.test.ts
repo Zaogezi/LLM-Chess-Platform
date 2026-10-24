@@ -129,6 +129,53 @@ describe('championship setup draft conversion', () => {
     expect(setupDrafts[0]!.thinkingOptions).not.toContain('mutated-on-restore');
   });
 
+  it('round-trips prompt level and token caps', () => {
+    const drafts = defaultDrafts();
+    drafts[0] = {
+      ...drafts[0]!,
+      promptLevel: 'deep',
+      maxThinkingTokens: 4096,
+      maxCompletionTokens: 8192,
+    };
+    const setupDrafts = toSetupDrafts(drafts);
+    expect(setupDrafts[0]).toMatchObject({
+      promptLevel: 'deep',
+      maxThinkingTokens: 4096,
+      maxCompletionTokens: 8192,
+    });
+
+    const restored = fromSetupDrafts(setupDrafts);
+    expect(restored[0]).toMatchObject({
+      promptLevel: 'deep',
+      maxThinkingTokens: 4096,
+      maxCompletionTokens: 8192,
+    });
+  });
+
+  it('accepts older snapshots that omit the new fields', () => {
+    const legacy = setupDraftsFromDefault() as unknown as Array<Record<string, unknown>>;
+    for (const draft of legacy) {
+      delete draft.promptLevel;
+      delete draft.maxThinkingTokens;
+      delete draft.maxCompletionTokens;
+    }
+    expect(isValidSetupSnapshot(snapshotPayload({ drafts: legacy }))).toBe(true);
+  });
+
+  it('rejects malformed token caps in a snapshot', () => {
+    const drafts = setupDraftsFromDefault();
+    drafts[0] = { ...drafts[0]!, maxThinkingTokens: 0 };
+    expect(isValidSetupSnapshot(snapshotPayload({ drafts }))).toBe(false);
+
+    const fractional = setupDraftsFromDefault();
+    fractional[0] = { ...fractional[0]!, maxCompletionTokens: 8192.5 };
+    expect(isValidSetupSnapshot(snapshotPayload({ drafts: fractional }))).toBe(false);
+
+    const badPrompt = setupDraftsFromDefault();
+    badPrompt[0] = { ...badPrompt[0]!, promptLevel: '   ' };
+    expect(isValidSetupSnapshot(snapshotPayload({ drafts: badPrompt }))).toBe(false);
+  });
+
   it('keeps qualifier seats on pool 4 and seeded seats on pools 1–3', () => {
     const setupDrafts = setupDraftsFromDefault();
     const qualifier = setupDrafts.filter((draft) => draft.qualifierGroup !== null);

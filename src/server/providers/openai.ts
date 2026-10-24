@@ -2,7 +2,13 @@ import type { ModelSetup } from '../../shared/protocol';
 import { nativeReasoningEffort } from '../../shared/protocol';
 import { resolveEndpoint } from './endpoint';
 import { asNonNegativeInt, asRecord, isQuotaExceeded, requestJson } from './http';
-import { requestTimeoutMs } from './thinking';
+import {
+  isOpenRouterEndpoint,
+  maxCompletionTokensFor,
+  maxThinkingTokensFor,
+  requestTimeoutMs,
+  usesMaxCompletionTokens,
+} from './thinking';
 import {
   ProviderError,
   type CompletionRequest,
@@ -31,13 +37,14 @@ function contentToText(content: unknown): string {
 function firstChoiceText(data: Record<string, unknown>): {
   text: string;
   refusal: string;
+  truncated: boolean;
 } {
   const choices = data.choices;
   if (!Array.isArray(choices) || choices.length === 0) {
-    return { text: '', refusal: '' };
+    return { text: '', refusal: '', truncated: false };
   }
   const choice = asRecord(choices[0]);
-  if (!choice) return { text: '', refusal: '' };
+  if (!choice) return { text: '', refusal: '', truncated: false };
 
   const message = asRecord(choice.message);
   const direct = typeof choice.text === 'string' ? choice.text : '';
@@ -50,6 +57,7 @@ function firstChoiceText(data: Record<string, unknown>): {
   return {
     text: content.trim() || direct.trim() || reasoning.trim(),
     refusal: refusal.trim(),
+    truncated: choice.finish_reason === 'length',
   };
 }
 
@@ -86,11 +94,23 @@ async function complete(
     messages,
     stream: false,
   };
-  if (setup.apiReasoning) {
-    const effort = nativeReasoningEffort(setup.thinkingLevel ?? 'balanced');
-    if (effort) {
-      body.reasoning_effort = effort;
-    }
+
+  const effort = setup.apiReasoning
+    ? nativeReasoningEffort(setup.thinkingLevel ?? 'balanced')
+    : null;
+  const thinkingCap = setup.apiReasoning ? maxThinkingTokensFor(setup) : null;
+  if (isOpenRouterEndpoint(setup) && thinkingCap !== null) {
+    // OpenRouter accepts either `reasoning.effort` or `reasoning.max_tokens`,
+    // not both; an explicit token budget wins over the coarse effort level.
+    body.reasoning = { max_tokens: thinkingCap };
+  } else if (effort) {
+    body.reasoning_effort = effort;
+  }
+
+  const completionCap = maxCompletionTokensFor(setup);
+  if (completionCap !== null) {
+    body[usesMaxCompletionTokens(setup) ? 'max_completion_tokens' : 'max_tokens'] =
+      completionCap;
   }
 
   const raw = await requestJson({
@@ -119,8 +139,14 @@ async function complete(
     });
   }
 
-  const { text, refusal } = firstChoiceText(data);
+  const { text, refusal, truncated } = firstChoiceText(data);
   if (!text) {
+    if (truncated) {
+      throw new ProviderError(
+        '模型输出达到 token 上限（finish_reason=length），未产生可用内容；请提高最大输出 token 或降低思考预算',
+        { truncated: true, retryable: false },
+      );
+    }
     throw new ProviderError(
       refusal
         ? `模型拒绝回答：${refusal}`
@@ -130,7 +156,7 @@ async function complete(
   }
 
   const usage = usageFrom(data);
-  return { text, ...usage };
+  return { text, ...usage, truncated };
 }
 
 export const openaiProvider: ModelProvider = {

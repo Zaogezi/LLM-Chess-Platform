@@ -22,6 +22,7 @@ import {
   type ProviderReply,
 } from '../providers/index';
 import { redactSecrets } from '../providers/http';
+import { resolvePromptLevel } from '../providers/thinking';
 import {
   IllegalMoveError,
   XiangqiGame,
@@ -274,6 +275,9 @@ export class Arena {
       model: setup.model,
       displayName: setup.displayName?.trim() || setup.model,
       thinkingLevel: setup.thinkingLevel ?? DEFAULT_THINKING_LEVEL,
+      promptLevel: setup.promptLevel ?? null,
+      maxThinkingTokens: setup.maxThinkingTokens ?? null,
+      maxCompletionTokens: setup.maxCompletionTokens ?? null,
       requestTimeoutSeconds: setup.requestTimeoutSeconds ?? null,
       apiReasoning: Boolean(setup.apiReasoning),
       keyConfigured: Boolean(setup.apiKey),
@@ -378,10 +382,11 @@ export class Arena {
       })),
     };
 
-    const thinkingLevel = runtime.setup.thinkingLevel ?? DEFAULT_THINKING_LEVEL;
-    const system = buildSystemPrompt(side, thinkingLevel);
+    // Prompt intensity and API reasoning intensity are independent settings.
+    const promptLevel = resolvePromptLevel(runtime.setup);
+    const system = buildSystemPrompt(side, promptLevel);
     const messages: ConversationMessage[] = [
-      { role: 'user', content: buildUserPrompt(context, thinkingLevel) },
+      { role: 'user', content: buildUserPrompt(context, promptLevel) },
     ];
 
     for (let attempt = 1; attempt <= this.settings.maxAttempts; attempt += 1) {
@@ -416,6 +421,13 @@ export class Arena {
           return;
         }
 
+        // A token cap ate the whole reply before any usable text appeared; a
+        // retry with the same cap would truncate again.
+        if (error instanceof ProviderError && error.truncated) {
+          this.forfeitTurn(side, message);
+          return;
+        }
+
         const retryable = error instanceof ProviderError ? error.retryable : false;
 
         if (retryable && attempt < this.settings.maxAttempts) {
@@ -442,12 +454,20 @@ export class Arena {
           error instanceof DecisionParseError ? error.message : '响应无法解析为合法着法';
         view.lastError = problem;
 
+        if (reply.truncated) {
+          this.forfeitTurn(
+            side,
+            '模型输出达到 token 上限被截断，未能给出完整着法；请提高最大输出 token 或降低思考预算',
+          );
+          return;
+        }
+
         if (attempt < this.settings.maxAttempts) {
           messages.push({
             role: 'assistant',
             content: truncate(reply.text.trim(), 1200) || '（空响应）',
           });
-          messages.push({ role: 'user', content: buildCorrection(problem, legalMoves, thinkingLevel) });
+          messages.push({ role: 'user', content: buildCorrection(problem, legalMoves, promptLevel) });
           this.emitState();
           await sleep(150, signal);
           if (!this.isCurrent(seq)) return;
@@ -466,12 +486,20 @@ export class Arena {
         const problem = `着法 ${decision.move} 不在当前合法着法列表中`;
         view.lastError = problem;
 
+        if (reply.truncated) {
+          this.forfeitTurn(
+            side,
+            '模型输出达到 token 上限被截断，未能给出完整着法；请提高最大输出 token 或降低思考预算',
+          );
+          return;
+        }
+
         if (attempt < this.settings.maxAttempts) {
           messages.push({
             role: 'assistant',
             content: truncate(reply.text.trim(), 1200) || '（空响应）',
           });
-          messages.push({ role: 'user', content: buildCorrection(problem, legalMoves, thinkingLevel) });
+          messages.push({ role: 'user', content: buildCorrection(problem, legalMoves, promptLevel) });
           this.emitState();
           await sleep(150, signal);
           if (!this.isCurrent(seq)) return;
@@ -498,7 +526,7 @@ export class Arena {
             });
             messages.push({
               role: 'user',
-              content: buildCorrection(error.message, legalMoves, thinkingLevel),
+              content: buildCorrection(error.message, legalMoves, promptLevel),
             });
             this.emitState();
             await sleep(150, signal);

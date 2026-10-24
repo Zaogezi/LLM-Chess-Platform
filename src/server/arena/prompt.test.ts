@@ -85,29 +85,29 @@ describe('prompt building', () => {
     expect(correction).toContain('只输出一个严格 JSON 对象');
   });
 
-  it('varies guidance, recent-move context and reason limits by thinking level', () => {
+  it('varies guidance, recent-move context and reason limits by prompt level', () => {
     const quick = buildSystemPrompt('red', 'quick');
     const balanced = buildSystemPrompt('red', 'balanced');
     const deep = buildSystemPrompt('red', 'deep');
 
-    expect(quick).toContain('【思考强度：快速】');
+    expect(quick).toContain('【应用内提示词：精简】');
     expect(quick).toContain('不超过30字');
     expect(quick).toContain('不做长链推演');
-    expect(balanced).toContain('【思考强度：标准】');
+    expect(balanced).toContain('【应用内提示词：标准】');
     expect(balanced).toContain('不超过60字');
-    expect(deep).toContain('【思考强度：深思】');
+    expect(deep).toContain('【应用内提示词：详尽】');
     expect(deep).toContain('不超过120字');
     expect(deep).toContain('至少比较三个候选着法');
 
     const quickPrompt = buildUserPrompt(context(), 'quick');
-    expect(quickPrompt).toContain('本回合思考强度：快速');
+    expect(quickPrompt).toContain('本回合提示词强度：精简');
     expect(quickPrompt).toContain('不超过30字');
 
     const deepCorrection = buildCorrection('着法无效', legalMoves, 'deep');
     expect(deepCorrection).toContain('不超过120字');
   });
 
-  it('keeps more history for deep thinking than quick thinking', () => {
+  it('keeps more history for the detailed prompt than the compact prompt', () => {
     const ctx = context();
     ctx.ply = 20;
     ctx.recentMoves = Array.from({ length: 20 }, (_, index) => ({

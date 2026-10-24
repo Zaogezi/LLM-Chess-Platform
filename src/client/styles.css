@@ -1533,6 +1533,14 @@ button {
   white-space: nowrap;
 }
 
+/* Second meta row: prompt intensity and optional token caps. */
+.model-card__limits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  min-width: 0;
+}
+
 .model-card__tail {
   display: flex;
   flex: none;
@@ -3689,6 +3697,13 @@ input[type="range"].range:disabled {
 
 .tourney-model-card__body {
   padding: 12px;
+}
+
+.tourney-model-card__flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 3px;
 }
 
 .tourney-field-grid {

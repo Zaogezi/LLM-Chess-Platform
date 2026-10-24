@@ -267,6 +267,9 @@ export class Tournament {
         model: setup.model,
         thinkingLevel: setup.thinkingLevel ?? DEFAULT_THINKING_LEVEL,
         apiReasoning: Boolean(setup.apiReasoning),
+        promptLevel: setup.promptLevel ?? null,
+        maxThinkingTokens: setup.maxThinkingTokens ?? null,
+        maxCompletionTokens: setup.maxCompletionTokens ?? null,
         requestTimeoutSeconds: setup.requestTimeoutSeconds ?? null,
         keyConfigured: Boolean(setup.apiKey),
       };

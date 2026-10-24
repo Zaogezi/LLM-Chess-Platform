@@ -111,6 +111,45 @@ describe('Tournament', () => {
     expect(JSON.stringify(state)).not.toContain('secret-');
   });
 
+  it('exposes prompt level and token caps in the model views', () => {
+    const provider: ModelProvider = {
+      provider: 'openai',
+      async complete() {
+        throw new Error('terminal positions must not call a model');
+      },
+    };
+    const tournament = createTournament({
+      providerFactory: () => provider,
+      createInitialGame: () => XiangqiGame.fromFen(MATE_RED_TO_MOVE),
+    });
+    const input = validateTournamentStartRequest({
+      models: [
+        {
+          ...entrant('Alpha'),
+          promptLevel: 'deep',
+          maxThinkingTokens: 4096,
+          maxCompletionTokens: 8192,
+        },
+        entrant('Beta'),
+      ],
+      gamesPerPair: 1,
+    });
+
+    const state = tournament.start(input);
+
+    expect(state.models[0]).toMatchObject({
+      name: 'Alpha',
+      promptLevel: 'deep',
+      maxThinkingTokens: 4096,
+      maxCompletionTokens: 8192,
+    });
+    expect(state.models[1]).toMatchObject({
+      promptLevel: null,
+      maxThinkingTokens: null,
+      maxCompletionTokens: null,
+    });
+  });
+
   it('counts a request timeout as a normal loss instead of a failed game', async () => {
     const provider: ModelProvider = {
       provider: 'openai',

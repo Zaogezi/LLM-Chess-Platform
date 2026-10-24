@@ -28,6 +28,10 @@ import {
   CHAMPIONSHIP_POOLS,
   CHAMPIONSHIP_QUALIFIER_ENTRANTS,
   CHAMPIONSHIP_SEED_POOLS,
+  MAX_COMPLETION_TOKENS_MAX,
+  MAX_COMPLETION_TOKENS_MIN,
+  MAX_THINKING_TOKENS_MAX,
+  MAX_THINKING_TOKENS_MIN,
   REQUEST_TIMEOUT_MAX_SECONDS,
   REQUEST_TIMEOUT_MIN_SECONDS,
 } from '../../shared/protocol';
@@ -127,6 +131,26 @@ function isRequestTimeout(value: unknown): value is number | null {
   );
 }
 
+/** Prompt level is optional; when present it must be a non-empty bounded name. */
+function isPromptLevel(value: unknown): value is string | null {
+  if (value === undefined || value === null) return true;
+  return (
+    typeof value === 'string' &&
+    value.trim().length > 0 &&
+    value.length <= MAX_LEVEL_LENGTH
+  );
+}
+
+function isTokenCap(value: unknown, min: number, max: number): value is number | null {
+  if (value === undefined || value === null) return true;
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= min &&
+    value <= max
+  );
+}
+
 function isThinkingOptions(value: unknown): value is string[] {
   return (
     Array.isArray(value) &&
@@ -153,6 +177,21 @@ function parseDraft(value: unknown): ChampionshipSetupDraft | null {
   if (typeof input.apiReasoning !== 'boolean') return null;
   if (!isBoundedString(input.apiKey, MAX_API_KEY_LENGTH)) return null;
   if (!isRequestTimeout(input.requestTimeoutSeconds)) return null;
+  if (!isPromptLevel(input.promptLevel)) return null;
+  if (
+    !isTokenCap(input.maxThinkingTokens, MAX_THINKING_TOKENS_MIN, MAX_THINKING_TOKENS_MAX)
+  ) {
+    return null;
+  }
+  if (
+    !isTokenCap(
+      input.maxCompletionTokens,
+      MAX_COMPLETION_TOKENS_MIN,
+      MAX_COMPLETION_TOKENS_MAX,
+    )
+  ) {
+    return null;
+  }
   if (!isSeedPool(input.seedPool)) return null;
   if (input.qualifierGroup !== null && !isQualifierGroup(input.qualifierGroup)) {
     return null;
@@ -169,6 +208,11 @@ function parseDraft(value: unknown): ChampionshipSetupDraft | null {
     thinkingLevel: input.thinkingLevel,
     thinkingOptions: [...input.thinkingOptions],
     apiReasoning: input.apiReasoning,
+    promptLevel: typeof input.promptLevel === 'string' ? input.promptLevel : null,
+    maxThinkingTokens:
+      typeof input.maxThinkingTokens === 'number' ? input.maxThinkingTokens : null,
+    maxCompletionTokens:
+      typeof input.maxCompletionTokens === 'number' ? input.maxCompletionTokens : null,
     apiKey: input.apiKey,
     requestTimeoutSeconds:
       typeof input.requestTimeoutSeconds === 'number'

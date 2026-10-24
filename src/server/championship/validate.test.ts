@@ -94,6 +94,10 @@ describe('validateChampionshipStartRequest', () => {
           displayName: '库中模型',
           thinkingLevel: 'balanced' as const,
           apiReasoning: false,
+          promptLevel: 'quick',
+          maxThinkingTokens: 2048,
+          maxCompletionTokens: 4096,
+          requestTimeoutSeconds: 120,
         };
       },
     };
@@ -104,6 +108,10 @@ describe('validateChampionshipStartRequest', () => {
       profileId: 'saved-a',
       thinkingLevel: 'deep',
       apiReasoning: true,
+      promptLevel: 'deep',
+      maxThinkingTokens: 8192,
+      maxCompletionTokens: 16384,
+      requestTimeoutSeconds: 300,
     } as never;
     body.entrants[1] = { name: 'A2', seedPool: 2, profileId: 'saved-a' } as never;
 
@@ -116,10 +124,18 @@ describe('validateChampionshipStartRequest', () => {
       displayName: '库中模型',
       thinkingLevel: 'deep',
       apiReasoning: true,
+      promptLevel: 'deep',
+      maxThinkingTokens: 8192,
+      maxCompletionTokens: 16384,
+      requestTimeoutSeconds: 300,
     });
     expect(input.entrants[1]?.setup).toMatchObject({
       thinkingLevel: 'balanced',
       apiReasoning: false,
+      promptLevel: 'quick',
+      maxThinkingTokens: 2048,
+      maxCompletionTokens: 4096,
+      requestTimeoutSeconds: 120,
     });
   });
 

@@ -67,6 +67,23 @@ function isConcurrency(value: unknown): value is number {
   );
 }
 
+/** Older snapshots omit these fields entirely; only present values are checked. */
+function isOptionalPromptLevel(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && value.trim().length > 0)
+  );
+}
+
+function isOptionalTokenCap(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'number' && Number.isInteger(value) && value > 0)
+  );
+}
+
 /** Fall back to `custom` when a snapshot carries an unknown preset key. */
 function toPresetKey(preset: string): PresetKey {
   return PRESET_KEYS.has(preset) ? (preset as PresetKey) : 'custom';
@@ -88,6 +105,9 @@ export function toSetupDrafts(
     thinkingOptions: [...draft.thinkingOptions],
     apiReasoning: draft.apiReasoning,
     apiKey: draft.apiKey,
+    promptLevel: draft.promptLevel ?? null,
+    maxThinkingTokens: draft.maxThinkingTokens ?? null,
+    maxCompletionTokens: draft.maxCompletionTokens ?? null,
     requestTimeoutSeconds: draft.requestTimeoutSeconds ?? null,
     seedPool: draft.seedPool,
     qualifierGroup: draft.qualifierGroup,
@@ -114,6 +134,9 @@ export function fromSetupDrafts(
     apiReasoning: draft.apiReasoning,
     apiKey: draft.apiKey,
     showKey: false,
+    promptLevel: draft.promptLevel ?? null,
+    maxThinkingTokens: draft.maxThinkingTokens ?? null,
+    maxCompletionTokens: draft.maxCompletionTokens ?? null,
     requestTimeoutSeconds: draft.requestTimeoutSeconds ?? null,
     seedPool: draft.seedPool,
     qualifierGroup: draft.qualifierGroup,
@@ -143,6 +166,9 @@ function isSetupDraft(value: unknown): value is ChampionshipSetupDraft {
   if (!Array.isArray(value.thinkingOptions)) return false;
   if (!value.thinkingOptions.every(isString)) return false;
   if (typeof value.apiReasoning !== 'boolean') return false;
+  if (!isOptionalPromptLevel(value.promptLevel)) return false;
+  if (!isOptionalTokenCap(value.maxThinkingTokens)) return false;
+  if (!isOptionalTokenCap(value.maxCompletionTokens)) return false;
   if (
     value.requestTimeoutSeconds !== undefined &&
     value.requestTimeoutSeconds !== null &&

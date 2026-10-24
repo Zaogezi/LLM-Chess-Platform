@@ -98,11 +98,24 @@ describe('validateQualifierStartRequest', () => {
           displayName: '库中模型',
           thinkingLevel: 'balanced' as const,
           apiReasoning: false,
+          promptLevel: 'quick',
+          maxThinkingTokens: 2048,
+          maxCompletionTokens: 4096,
+          requestTimeoutSeconds: 120,
         };
       },
     };
     const body = validBody();
-    body.entrants[0] = { name: 'A1', profileId: 'saved-a', thinkingLevel: 'deep', apiReasoning: true };
+    body.entrants[0] = {
+      name: 'A1',
+      profileId: 'saved-a',
+      thinkingLevel: 'deep',
+      apiReasoning: true,
+      promptLevel: 'deep',
+      maxThinkingTokens: 8192,
+      maxCompletionTokens: 16384,
+      requestTimeoutSeconds: 300,
+    };
     body.entrants[1] = { name: 'A2', profileId: 'saved-a' };
 
     const input = validateQualifierStartRequest(body, profiles);
@@ -114,10 +127,18 @@ describe('validateQualifierStartRequest', () => {
       displayName: '库中模型',
       thinkingLevel: 'deep',
       apiReasoning: true,
+      promptLevel: 'deep',
+      maxThinkingTokens: 8192,
+      maxCompletionTokens: 16384,
+      requestTimeoutSeconds: 300,
     });
     expect(input.entrants[1]?.setup).toMatchObject({
       thinkingLevel: 'balanced',
       apiReasoning: false,
+      promptLevel: 'quick',
+      maxThinkingTokens: 2048,
+      maxCompletionTokens: 4096,
+      requestTimeoutSeconds: 120,
     });
   });
 

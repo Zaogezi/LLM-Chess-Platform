@@ -14,6 +14,8 @@ export interface ProviderReply {
   text: string;
   tokensIn: number;
   tokensOut: number;
+  /** The provider stopped because a token cap (`length`/`max_tokens`) was hit. */
+  truncated?: boolean;
 }
 
 export interface ModelProvider {
@@ -35,6 +37,8 @@ export class ProviderError extends Error {
   readonly timeoutSeconds: number | null;
   /** The provider rejected the request because the key's quota/credit ran out. */
   readonly quotaExceeded: boolean;
+  /** The reply hit a configured token cap before becoming usable. */
+  readonly truncated: boolean;
 
   constructor(
     message: string,
@@ -44,6 +48,7 @@ export class ProviderError extends Error {
       timeout?: boolean;
       timeoutSeconds?: number | null;
       quotaExceeded?: boolean;
+      truncated?: boolean;
     } = {},
   ) {
     super(message);
@@ -53,5 +58,6 @@ export class ProviderError extends Error {
     this.timeout = options.timeout ?? false;
     this.timeoutSeconds = options.timeoutSeconds ?? null;
     this.quotaExceeded = options.quotaExceeded ?? false;
+    this.truncated = options.truncated ?? false;
   }
 }

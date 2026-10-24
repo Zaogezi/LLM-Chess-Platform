@@ -78,6 +78,65 @@ describe('tournament saved-profile integration', () => {
     );
   });
 
+  it('carries prompt level and token caps through drafts and start requests', () => {
+    const richProfile: ModelProfileView = {
+      ...profile,
+      promptLevel: 'deep',
+      maxThinkingTokens: 2048,
+      maxCompletionTokens: 8192,
+    };
+    const draft = applyProfileToDraft(
+      createTournamentDraft('deepseek', 'DeepSeek'),
+      richProfile,
+      [],
+    );
+    expect(draft).toMatchObject({
+      promptLevel: 'deep',
+      maxThinkingTokens: 2048,
+      maxCompletionTokens: 8192,
+    });
+    expect(toTournamentStartRequest([draft], 1).models[0]).toMatchObject({
+      profileId: 'saved-1',
+      promptLevel: 'deep',
+      maxThinkingTokens: 2048,
+      maxCompletionTokens: 8192,
+    });
+
+    const inline = {
+      ...createTournamentDraft('openai', 'OpenAI'),
+      promptLevel: 'quick',
+      maxThinkingTokens: 1024,
+      maxCompletionTokens: 4096,
+    };
+    expect(toTournamentStartRequest([inline], 1).models[0]).toMatchObject({
+      provider: 'openai',
+      promptLevel: 'quick',
+      maxThinkingTokens: 1024,
+      maxCompletionTokens: 4096,
+    });
+
+    // null keeps the saved-profile default, so it is omitted from the request.
+    const defaults = {
+      ...createTournamentDraft('deepseek', '默认'),
+      promptLevel: null,
+      maxThinkingTokens: null,
+      maxCompletionTokens: null,
+    };
+    const defaultRequest = toTournamentStartRequest([defaults], 1);
+    expect(defaultRequest.models[0]).not.toHaveProperty('promptLevel');
+    expect(defaultRequest.models[0]).not.toHaveProperty('maxThinkingTokens');
+    expect(defaultRequest.models[0]).not.toHaveProperty('maxCompletionTokens');
+  });
+
+  it('validates token caps per entrant', () => {
+    const draft = createTournamentDraft('deepseek', 'DeepSeek');
+    const invalid = { ...draft, maxThinkingTokens: 4096, maxCompletionTokens: 4096 };
+    const validation = validateTournamentDrafts([invalid], 1);
+    expect(validation.modelErrors[invalid.id]?.maxCompletionTokens).toMatch(
+      /必须大于最大思考 token/,
+    );
+  });
+
   it('reports a missing saved profile before starting', () => {
     const draft = applyProfileToDraft(
       createTournamentDraft('deepseek', 'DeepSeek'),

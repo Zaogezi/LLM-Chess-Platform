@@ -5,7 +5,17 @@ import { anthropicProvider } from './anthropic';
 import { openaiProvider } from './openai';
 import { ProviderError } from './types';
 import { redactSecrets, requestJson } from './http';
-import { THINKING_TIMEOUT_MS, requestTimeoutMs, thinkingTimeoutMs } from './thinking';
+import {
+  THINKING_TIMEOUT_MS,
+  isOpenRouterEndpoint,
+  maxCompletionTokensFor,
+  maxThinkingTokensFor,
+  requestTimeoutMs,
+  resolvePromptLevel,
+  thinkingBudgetFor,
+  thinkingTimeoutMs,
+  usesMaxCompletionTokens,
+} from './thinking';
 
 interface CapturedRequest {
   url: string;
@@ -369,6 +379,94 @@ describe('OpenAI-compatible provider', () => {
   });
 });
 
+describe('completion-token caps', () => {
+  it('sends max_tokens on a generic OpenAI-compatible gateway', async () => {
+    const mock = await mockServer((_request, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          choices: [{ message: { content: '{"move":"h2e2","reason":"test"}' } }],
+        }),
+      );
+    });
+
+    await openaiProvider.complete(
+      { ...openAiSetup(mock.baseUrl), maxCompletionTokens: 4096 },
+      request(),
+      new AbortController().signal,
+    );
+    expect(mock.requests[0]?.body.max_tokens).toBe(4096);
+    expect(mock.requests[0]?.body.max_completion_tokens).toBeUndefined();
+  });
+
+  it('chooses max_completion_tokens for official OpenAI and reasoning families', () => {
+    expect(
+      usesMaxCompletionTokens({ baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' }),
+    ).toBe(true);
+    expect(
+      usesMaxCompletionTokens({ baseUrl: 'https://example.com/v1', model: 'o3-mini' }),
+    ).toBe(true);
+    expect(
+      usesMaxCompletionTokens({ baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' }),
+    ).toBe(false);
+  });
+
+  it('recognises scripted completion truncation', async () => {
+    const partial = await mockServer((_request, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          choices: [
+            {
+              message: { content: '{"move":"h2e2","reason":"被截断' },
+              finish_reason: 'length',
+            },
+          ],
+        }),
+      );
+    });
+    const reply = await openaiProvider.complete(
+      openAiSetup(partial.baseUrl),
+      request(),
+      new AbortController().signal,
+    );
+    expect(reply.truncated).toBe(true);
+    expect(reply.text).toContain('h2e2');
+
+    const empty = await mockServer((_request, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          choices: [{ message: { content: '' }, finish_reason: 'length' }],
+        }),
+      );
+    });
+    await expect(
+      openaiProvider.complete(
+        openAiSetup(empty.baseUrl),
+        request(),
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({
+      name: 'ProviderError',
+      truncated: true,
+      retryable: false,
+    });
+  });
+
+  it('sends reasoning.max_tokens to OpenRouter-style endpoints', async () => {
+    // Only the URL decides the OpenRouter path; the local mock never receives
+    // a request because the provider cannot reach openrouter.invalid, so this
+    // test asserts the endpoint helpers instead.
+    expect(
+      isOpenRouterEndpoint({ baseUrl: 'https://openrouter.ai/api/v1' }),
+    ).toBe(true);
+    expect(
+      isOpenRouterEndpoint({ baseUrl: 'https://api.openai.com/v1' }),
+    ).toBe(false);
+  });
+});
+
 describe('Anthropic provider', () => {
   it('posts a Messages API request and parses text blocks and usage', async () => {
     const mock = await mockServer((_request, res) => {
@@ -460,6 +558,77 @@ describe('Anthropic provider', () => {
     expect(mock.requests[4]?.body.max_tokens).toBe(1200);
   });
 
+  it('honours explicit thinking and completion caps', async () => {
+    const mock = await mockServer((_request, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          content: [{ type: 'text', text: '{"move":"h9g7","reason":"test"}' }],
+        }),
+      );
+    });
+    const base = anthropicSetup(mock.baseUrl);
+
+    await anthropicProvider.complete(
+      {
+        ...base,
+        apiReasoning: true,
+        thinkingLevel: 'quick',
+        maxThinkingTokens: 1500,
+        maxCompletionTokens: 6000,
+      },
+      request(),
+      new AbortController().signal,
+    );
+    expect(mock.requests[0]?.body.thinking).toEqual({
+      type: 'enabled',
+      budget_tokens: 1500,
+    });
+    expect(mock.requests[0]?.body.max_tokens).toBe(6000);
+
+    await anthropicProvider.complete(
+      { ...base, apiReasoning: false, maxCompletionTokens: 2500 },
+      request(),
+      new AbortController().signal,
+    );
+    expect(mock.requests[1]?.body.thinking).toBeUndefined();
+    expect(mock.requests[1]?.body.max_tokens).toBe(2500);
+  });
+
+  it('flags stop_reason=max_tokens as truncation', async () => {
+    const partial = await mockServer((_request, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          content: [{ type: 'text', text: '{"move":"h9g7","reason":"被截断' }],
+          stop_reason: 'max_tokens',
+        }),
+      );
+    });
+    const reply = await anthropicProvider.complete(
+      anthropicSetup(partial.baseUrl),
+      request(),
+      new AbortController().signal,
+    );
+    expect(reply.truncated).toBe(true);
+
+    const empty = await mockServer((_request, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ content: [], stop_reason: 'max_tokens' }));
+    });
+    await expect(
+      anthropicProvider.complete(
+        anthropicSetup(empty.baseUrl),
+        request(),
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({
+      name: 'ProviderError',
+      truncated: true,
+      retryable: false,
+    });
+  });
+
   it('rejects an error-typed 200 response', async () => {
     const mock = await mockServer((_request, res) => {
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -504,5 +673,26 @@ describe('thinking-level request budgets', () => {
     expect(requestTimeoutMs({ thinkingLevel: 'high', requestTimeoutSeconds: null })).toBe(
       THINKING_TIMEOUT_MS.deep,
     );
+  });
+
+  it('resolves prompt intensity independently from the API thinking level', () => {
+    expect(resolvePromptLevel({ thinkingLevel: 'high' })).toBe('high');
+    expect(resolvePromptLevel({ thinkingLevel: 'high', promptLevel: 'quick' })).toBe('quick');
+    expect(resolvePromptLevel({ thinkingLevel: 'high', promptLevel: null })).toBe('high');
+    expect(resolvePromptLevel({})).toBe('balanced');
+  });
+
+  it('applies the thinking and completion token caps to the effective setup', () => {
+    expect(
+      thinkingBudgetFor({ apiReasoning: true, thinkingLevel: 'quick', maxThinkingTokens: 1234 }),
+    ).toBe(1234);
+    expect(
+      thinkingBudgetFor({ apiReasoning: false, thinkingLevel: 'quick', maxThinkingTokens: 1234 }),
+    ).toBeNull();
+    expect(thinkingBudgetFor({ apiReasoning: true, thinkingLevel: 'deep' })).toBe(4096);
+    expect(maxThinkingTokensFor({ maxThinkingTokens: 1234 })).toBe(1234);
+    expect(maxThinkingTokensFor({})).toBeNull();
+    expect(maxCompletionTokensFor({ maxCompletionTokens: 4096 })).toBe(4096);
+    expect(maxCompletionTokensFor({ maxCompletionTokens: 0 })).toBeNull();
   });
 });

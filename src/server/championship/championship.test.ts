@@ -175,6 +175,37 @@ function seriesById(state: ChampionshipState, id: string) {
 }
 
 describe('Championship', () => {
+  it('exposes prompt level and token caps in the entrant views', () => {
+    const input = startInput();
+    input.entrants[0] = {
+      ...input.entrants[0]!,
+      setup: {
+        ...input.entrants[0]!.setup,
+        promptLevel: 'deep',
+        maxThinkingTokens: 4096,
+        maxCompletionTokens: 8192,
+      },
+    };
+    const championship = createChampionship({
+      providerFactory: () => unusedProvider,
+      createInitialGame: () => XiangqiGame.fromFen(MATE_BLACK_WINS),
+    });
+
+    const state = championship.start(input);
+
+    expect(state.entrants[0]).toMatchObject({
+      name: 'A1',
+      promptLevel: 'deep',
+      maxThinkingTokens: 4096,
+      maxCompletionTokens: 8192,
+    });
+    expect(state.entrants[1]).toMatchObject({
+      promptLevel: null,
+      maxThinkingTokens: null,
+      maxCompletionTokens: null,
+    });
+  });
+
   it('runs 24 group games and the six-game three-point bracket to a champion', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     let providerCalls = 0;

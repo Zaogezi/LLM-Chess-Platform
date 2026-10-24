@@ -1117,6 +1117,30 @@ export function buildChampionshipSeriesPreview(): ChampionshipSeriesView[] {
   }));
 }
 
+/**
+ * Optional per-entrant settings shared by both request shapes. Null keeps the
+ * "follow / no limit" defaults of the saved profile and is therefore omitted.
+ */
+function championshipDraftOverrides(draft: ChampionshipDraft): {
+  promptLevel?: string;
+  maxThinkingTokens?: number;
+  maxCompletionTokens?: number;
+  requestTimeoutSeconds?: number;
+} {
+  return {
+    ...(draft.promptLevel != null ? { promptLevel: draft.promptLevel } : {}),
+    ...(draft.maxThinkingTokens != null
+      ? { maxThinkingTokens: draft.maxThinkingTokens }
+      : {}),
+    ...(draft.maxCompletionTokens != null
+      ? { maxCompletionTokens: draft.maxCompletionTokens }
+      : {}),
+    ...(draft.requestTimeoutSeconds != null
+      ? { requestTimeoutSeconds: draft.requestTimeoutSeconds }
+      : {}),
+  };
+}
+
 export function toChampionshipStartRequest(
   drafts: readonly ChampionshipDraft[],
   draw: ChampionshipDraw,
@@ -1130,6 +1154,7 @@ export function toChampionshipStartRequest(
           profileId: draft.profileId,
           thinkingLevel: draft.thinkingLevel,
           apiReasoning: draft.apiReasoning,
+          ...championshipDraftOverrides(draft),
         };
       }
       return {
@@ -1141,6 +1166,7 @@ export function toChampionshipStartRequest(
         apiKey: draft.apiKey,
         thinkingLevel: draft.thinkingLevel,
         apiReasoning: draft.apiReasoning,
+        ...championshipDraftOverrides(draft),
       };
     }),
     groups: draw.groups.map(

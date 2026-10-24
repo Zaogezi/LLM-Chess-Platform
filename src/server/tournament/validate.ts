@@ -1,5 +1,6 @@
 import type { ModelSetup } from '../../shared/protocol';
 import {
+  DEFAULT_THINKING_LEVEL,
   TOURNAMENT_MAX_GAMES_PER_PAIR,
   TOURNAMENT_MAX_MODELS,
   TOURNAMENT_MIN_MODELS,
@@ -8,8 +9,13 @@ import type { ModelProfileLookup } from '../providers/validate';
 import {
   ValidationError,
   validateApiReasoning,
+  validateMaxCompletionTokens,
+  validateMaxThinkingTokens,
   validateModelSetup,
+  validatePromptLevel,
+  validateRequestTimeoutSeconds,
   validateThinkingLevel,
+  validateTokenCaps,
 } from '../providers/validate';
 
 export interface TournamentEntrant {
@@ -86,16 +92,48 @@ export function validateTournamentStartRequest(
           `第 ${index + 1} 个模型（${name}）的模型库配置已不存在，请重新选择`,
         );
       }
+      // An explicit request field wins; omitted fields keep the saved profile's
+      // value, so a model-library entrant reaches the tournament view with the
+      // prompt level and token caps the user configured for this run.
+      const thinkingLevel =
+        item.thinkingLevel === undefined
+          ? saved.thinkingLevel ?? DEFAULT_THINKING_LEVEL
+          : validateThinkingLevel(item.thinkingLevel);
+      const apiReasoning =
+        item.apiReasoning === undefined
+          ? Boolean(saved.apiReasoning)
+          : validateApiReasoning(item.apiReasoning);
+      const promptLevel =
+        item.promptLevel === undefined
+          ? saved.promptLevel ?? null
+          : validatePromptLevel(item.promptLevel);
+      const maxThinkingTokens =
+        item.maxThinkingTokens === undefined
+          ? saved.maxThinkingTokens ?? null
+          : validateMaxThinkingTokens(item.maxThinkingTokens);
+      const maxCompletionTokens =
+        item.maxCompletionTokens === undefined
+          ? saved.maxCompletionTokens ?? null
+          : validateMaxCompletionTokens(item.maxCompletionTokens);
+      const requestTimeoutSeconds =
+        item.requestTimeoutSeconds === undefined
+          ? saved.requestTimeoutSeconds ?? null
+          : validateRequestTimeoutSeconds(item.requestTimeoutSeconds);
+      validateTokenCaps(
+        saved.provider,
+        thinkingLevel,
+        apiReasoning,
+        maxThinkingTokens,
+        maxCompletionTokens,
+      );
       setup = {
         ...saved,
-        thinkingLevel:
-          item.thinkingLevel === undefined
-            ? saved.thinkingLevel
-            : validateThinkingLevel(item.thinkingLevel),
-        apiReasoning:
-          item.apiReasoning === undefined
-            ? Boolean(saved.apiReasoning)
-            : validateApiReasoning(item.apiReasoning),
+        thinkingLevel,
+        apiReasoning,
+        ...(promptLevel !== null ? { promptLevel } : {}),
+        ...(maxThinkingTokens !== null ? { maxThinkingTokens } : {}),
+        ...(maxCompletionTokens !== null ? { maxCompletionTokens } : {}),
+        ...(requestTimeoutSeconds !== null ? { requestTimeoutSeconds } : {}),
       };
     } else {
       setup = validateModelSetup(item, `第 ${index + 1} 个模型`);

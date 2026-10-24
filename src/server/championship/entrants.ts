@@ -1,10 +1,15 @@
-import type { ModelSetup } from '../../shared/protocol';
+import { DEFAULT_THINKING_LEVEL, type ModelSetup } from '../../shared/protocol';
 import type { ModelProfileLookup } from '../providers/validate';
 import {
   ValidationError,
   validateApiReasoning,
+  validateMaxCompletionTokens,
+  validateMaxThinkingTokens,
   validateModelSetup,
+  validatePromptLevel,
+  validateRequestTimeoutSeconds,
   validateThinkingLevel,
+  validateTokenCaps,
 } from '../providers/validate';
 
 /** Shared limits for every championship-related entrant name/profile reference. */
@@ -60,15 +65,46 @@ export function resolveEntrantSetup(
   if (!saved) {
     throw new ValidationError(`${label}（${name}）的模型库配置已不存在，请重新选择`);
   }
+  const thinkingLevel =
+    item.thinkingLevel === undefined
+      ? saved.thinkingLevel ?? DEFAULT_THINKING_LEVEL
+      : validateThinkingLevel(item.thinkingLevel);
+  const apiReasoning =
+    item.apiReasoning === undefined
+      ? Boolean(saved.apiReasoning)
+      : validateApiReasoning(item.apiReasoning);
+  // The remaining optional settings follow the same override-on-profile rule:
+  // an explicit request field wins, omitted fields keep the saved profile value.
+  const promptLevel =
+    item.promptLevel === undefined
+      ? saved.promptLevel ?? null
+      : validatePromptLevel(item.promptLevel);
+  const maxThinkingTokens =
+    item.maxThinkingTokens === undefined
+      ? saved.maxThinkingTokens ?? null
+      : validateMaxThinkingTokens(item.maxThinkingTokens);
+  const maxCompletionTokens =
+    item.maxCompletionTokens === undefined
+      ? saved.maxCompletionTokens ?? null
+      : validateMaxCompletionTokens(item.maxCompletionTokens);
+  const requestTimeoutSeconds =
+    item.requestTimeoutSeconds === undefined
+      ? saved.requestTimeoutSeconds ?? null
+      : validateRequestTimeoutSeconds(item.requestTimeoutSeconds);
+  validateTokenCaps(
+    saved.provider,
+    thinkingLevel,
+    apiReasoning,
+    maxThinkingTokens,
+    maxCompletionTokens,
+  );
   return {
     ...saved,
-    thinkingLevel:
-      item.thinkingLevel === undefined
-        ? saved.thinkingLevel
-        : validateThinkingLevel(item.thinkingLevel),
-    apiReasoning:
-      item.apiReasoning === undefined
-        ? Boolean(saved.apiReasoning)
-        : validateApiReasoning(item.apiReasoning),
+    thinkingLevel,
+    apiReasoning,
+    ...(promptLevel !== null ? { promptLevel } : {}),
+    ...(maxThinkingTokens !== null ? { maxThinkingTokens } : {}),
+    ...(maxCompletionTokens !== null ? { maxCompletionTokens } : {}),
+    ...(requestTimeoutSeconds !== null ? { requestTimeoutSeconds } : {}),
   };
 }

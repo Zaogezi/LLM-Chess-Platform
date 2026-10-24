@@ -327,6 +327,37 @@ describe('Qualifier lifecycle', () => {
     expect(state.games).toEqual([]);
   });
 
+  it('exposes prompt level and token caps in the entrant views', () => {
+    const input = startInput();
+    input.entrants[0] = {
+      ...input.entrants[0]!,
+      setup: {
+        ...input.entrants[0]!.setup,
+        promptLevel: 'deep',
+        maxThinkingTokens: 4096,
+        maxCompletionTokens: 8192,
+      },
+    };
+    const qualifier = createQualifier({
+      providerFactory: () => unusedProvider,
+      createInitialGame: () => XiangqiGame.fromFen(MATE_BLACK_WINS),
+    });
+
+    const state = qualifier.start(input);
+
+    expect(state.entrants[0]).toMatchObject({
+      name: 'A1',
+      promptLevel: 'deep',
+      maxThinkingTokens: 4096,
+      maxCompletionTokens: 8192,
+    });
+    expect(state.entrants[1]).toMatchObject({
+      promptLevel: null,
+      maxThinkingTokens: null,
+      maxCompletionTokens: null,
+    });
+  });
+
   it('runs all 20 terminal games and promotes A1, B1, A2, B2', async () => {
     let providerCalls = 0;
     const provider: ModelProvider = {

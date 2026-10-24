@@ -8,9 +8,14 @@ import type {
 import {
   DEFAULT_SETTINGS,
   DEFAULT_THINKING_LEVEL,
+  MAX_COMPLETION_TOKENS_MAX,
+  MAX_COMPLETION_TOKENS_MIN,
+  MAX_THINKING_TOKENS_MAX,
+  MAX_THINKING_TOKENS_MIN,
   REQUEST_TIMEOUT_MAX_SECONDS,
   REQUEST_TIMEOUT_MIN_SECONDS,
   THINKING_LEVELS,
+  thinkingBudgetTokens,
 } from '../../shared/protocol';
 
 export class ValidationError extends Error {
@@ -140,6 +145,73 @@ export function validateRequestTimeoutSeconds(value: unknown): number | null {
   return value;
 }
 
+/** `null` means the prompt follows the API thinking level. */
+export function validatePromptLevel(value: unknown): ThinkingLevel | null {
+  if (value === undefined || value === null || value === '') return null;
+  return validateThinkingLevel(value);
+}
+
+/** `null` means the provider/tier default thinking budget is used. */
+export function validateMaxThinkingTokens(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new ValidationError(
+      `最大思考 token 须为 ${MAX_THINKING_TOKENS_MIN}–${MAX_THINKING_TOKENS_MAX} 的整数`,
+    );
+  }
+  if (value < MAX_THINKING_TOKENS_MIN || value > MAX_THINKING_TOKENS_MAX) {
+    throw new ValidationError(
+      `最大思考 token 须在 ${MAX_THINKING_TOKENS_MIN}–${MAX_THINKING_TOKENS_MAX} 之间`,
+    );
+  }
+  return value;
+}
+
+/** `null` means no explicit completion-token cap is sent. */
+export function validateMaxCompletionTokens(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new ValidationError(
+      `最大输出 token 须为 ${MAX_COMPLETION_TOKENS_MIN}–${MAX_COMPLETION_TOKENS_MAX} 的整数`,
+    );
+  }
+  if (value < MAX_COMPLETION_TOKENS_MIN || value > MAX_COMPLETION_TOKENS_MAX) {
+    throw new ValidationError(
+      `最大输出 token 须在 ${MAX_COMPLETION_TOKENS_MIN}–${MAX_COMPLETION_TOKENS_MAX} 之间`,
+    );
+  }
+  return value;
+}
+
+/**
+ * Cross-field sanity check: a completion cap below the thinking budget would
+ * leave no room for the visible JSON answer (Anthropic rejects it outright).
+ */
+export function validateTokenCaps(
+  provider: ProviderKind,
+  thinkingLevel: ThinkingLevel,
+  apiReasoning: boolean,
+  maxThinkingTokens: number | null,
+  maxCompletionTokens: number | null,
+): void {
+  if (
+    maxThinkingTokens !== null &&
+    maxCompletionTokens !== null &&
+    maxCompletionTokens <= maxThinkingTokens
+  ) {
+    throw new ValidationError('最大输出 token 必须大于最大思考 token');
+  }
+  if (provider !== 'anthropic' || !apiReasoning || maxCompletionTokens === null) {
+    return;
+  }
+  const budget = thinkingBudgetTokens(thinkingLevel, maxThinkingTokens);
+  if (budget !== null && maxCompletionTokens <= budget) {
+    throw new ValidationError(
+      `最大输出 token 必须大于 Anthropic 思考预算（当前 ${budget}）`,
+    );
+  }
+}
+
 function modelLabel(sideOrLabel: Side | string): string {
   if (sideOrLabel === 'red') return '红方';
   if (sideOrLabel === 'black') return '黑方';
@@ -181,14 +253,29 @@ export function validateModelSetup(value: unknown, sideOrLabel: Side | string): 
       : validateApiReasoning(input.apiReasoning);
 
   const requestTimeoutSeconds = validateRequestTimeoutSeconds(input.requestTimeoutSeconds);
+  const thinkingLevel = validateThinkingLevel(input.thinkingLevel);
+  const promptLevel = validatePromptLevel(input.promptLevel);
+  const maxThinkingTokens = validateMaxThinkingTokens(input.maxThinkingTokens);
+  const maxCompletionTokens = validateMaxCompletionTokens(input.maxCompletionTokens);
+  validateTokenCaps(
+    provider as ProviderKind,
+    thinkingLevel,
+    apiReasoning,
+    maxThinkingTokens,
+    maxCompletionTokens,
+  );
+
   return {
     provider: provider as ProviderKind,
     baseUrl: normalizeBaseUrl(input.baseUrl),
     model,
     apiKey,
     ...(displayName ? { displayName } : {}),
-    thinkingLevel: validateThinkingLevel(input.thinkingLevel),
+    thinkingLevel,
     apiReasoning,
+    ...(promptLevel !== null ? { promptLevel } : {}),
+    ...(maxThinkingTokens !== null ? { maxThinkingTokens } : {}),
+    ...(maxCompletionTokens !== null ? { maxCompletionTokens } : {}),
     ...(requestTimeoutSeconds !== null ? { requestTimeoutSeconds } : {}),
   };
 }
@@ -222,16 +309,40 @@ function resolveSideRequest(
       input.requestTimeoutSeconds === undefined
         ? saved.requestTimeoutSeconds ?? null
         : validateRequestTimeoutSeconds(input.requestTimeoutSeconds);
+    const thinkingLevel =
+      input.thinkingLevel === undefined
+        ? saved.thinkingLevel ?? DEFAULT_THINKING_LEVEL
+        : validateThinkingLevel(input.thinkingLevel);
+    const apiReasoning =
+      input.apiReasoning === undefined
+        ? Boolean(saved.apiReasoning)
+        : validateApiReasoning(input.apiReasoning);
+    const promptLevel =
+      input.promptLevel === undefined
+        ? saved.promptLevel ?? null
+        : validatePromptLevel(input.promptLevel);
+    const maxThinkingTokens =
+      input.maxThinkingTokens === undefined
+        ? saved.maxThinkingTokens ?? null
+        : validateMaxThinkingTokens(input.maxThinkingTokens);
+    const maxCompletionTokens =
+      input.maxCompletionTokens === undefined
+        ? saved.maxCompletionTokens ?? null
+        : validateMaxCompletionTokens(input.maxCompletionTokens);
+    validateTokenCaps(
+      saved.provider,
+      thinkingLevel,
+      apiReasoning,
+      maxThinkingTokens,
+      maxCompletionTokens,
+    );
     return {
       ...saved,
-      thinkingLevel:
-        input.thinkingLevel === undefined
-          ? saved.thinkingLevel
-          : validateThinkingLevel(input.thinkingLevel),
-      apiReasoning:
-        input.apiReasoning === undefined
-          ? Boolean(saved.apiReasoning)
-          : validateApiReasoning(input.apiReasoning),
+      thinkingLevel,
+      apiReasoning,
+      ...(promptLevel !== null ? { promptLevel } : {}),
+      ...(maxThinkingTokens !== null ? { maxThinkingTokens } : {}),
+      ...(maxCompletionTokens !== null ? { maxCompletionTokens } : {}),
       ...(requestTimeoutSeconds !== null ? { requestTimeoutSeconds } : {}),
     };
   }

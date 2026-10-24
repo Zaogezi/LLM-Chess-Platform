@@ -3,14 +3,17 @@ import type { ModelProfileView } from '../../../shared/protocol';
 import type { PresetKey } from '../../presets';
 import { PRESETS, PROVIDER_LABELS, PROVIDER_OPTIONS, presetByKey } from '../../presets';
 import { profileKeyLabel } from '../../lib/profiles';
+import { describeTokenLimits, promptLevelLabel } from '../../lib/format';
 import type {
   TournamentFieldErrors,
   TournamentModelDraft,
 } from '../../lib/tournament';
 import { TOURNAMENT_MODEL_SEALS } from '../../lib/tournament';
 import { EyeIcon, EyeOffIcon } from '../Icons';
+import { PromptLevelField } from '../PromptLevelField';
 import { ThinkingLevelField } from '../ThinkingLevelField';
 import { ReasoningTimeoutField } from '../ReasoningTimeoutField';
+import { TokenLimitsField } from '../TokenLimitsField';
 
 interface TournamentModelCardProps {
   index: number;
@@ -72,6 +75,11 @@ export function TournamentModelCard({
   );
   const profileMode = Boolean(draft.profileId);
   const profileMissing = profileMode && selectedProfile === null;
+  const explicitPromptLevel = draft.promptLevel?.trim() ? draft.promptLevel : null;
+  const tokenLimitText = describeTokenLimits(
+    draft.maxThinkingTokens,
+    draft.maxCompletionTokens,
+  );
 
   const profileId = `${draft.id}-profile`;
   const profileErrorId = `${draft.id}-profile-error`;
@@ -104,6 +112,18 @@ export function TournamentModelCard({
               {draft.model.trim() || '模型待定'}
             </span>
           </p>
+          {(explicitPromptLevel || tokenLimitText) && (
+            <div className="tourney-model-card__flags">
+              {explicitPromptLevel && (
+                <span className="thinking-badge">
+                  提示 · {promptLevelLabel(explicitPromptLevel)}
+                </span>
+              )}
+              {tokenLimitText && (
+                <span className="thinking-badge">{tokenLimitText}</span>
+              )}
+            </div>
+          )}
         </div>
         <div className="tourney-model-card__actions">
           {showManagement && (
@@ -316,6 +336,27 @@ export function TournamentModelCard({
                   ...(selected ? { thinkingLevel: selected } : {}),
                 })
               }
+            />
+
+            <PromptLevelField
+              id={`${draft.id}-promptLevel`}
+              value={draft.promptLevel}
+              thinkingLevel={draft.thinkingLevel}
+              disabled={disabled}
+              onChange={(level) => onChange({ promptLevel: level })}
+            />
+
+            <TokenLimitsField
+              idPrefix={`${draft.id}-token`}
+              provider={draft.provider}
+              apiReasoning={draft.apiReasoning}
+              thinkingLevel={draft.thinkingLevel}
+              maxThinkingTokens={draft.maxThinkingTokens}
+              maxCompletionTokens={draft.maxCompletionTokens}
+              disabled={disabled}
+              thinkingError={errors.maxThinkingTokens}
+              completionError={errors.maxCompletionTokens}
+              onChange={(patch) => onChange(patch)}
             />
 
             <ReasoningTimeoutField

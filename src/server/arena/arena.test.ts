@@ -205,10 +205,10 @@ describe('Arena lifecycle and model turns', () => {
     expect(state.models.black?.thinkingLevel).toBe('deep');
     expect(state.models.black?.apiReasoning).toBe(false);
     expect(provider.calls.find((call) => call.model === 'red-model')?.request.system).toContain(
-      '【思考强度：快速】',
+      '【应用内提示词：精简】',
     );
     expect(provider.calls.find((call) => call.model === 'black-model')?.request.system).toContain(
-      '【思考强度：深思】',
+      '【应用内提示词：详尽】',
     );
   });
 
@@ -318,6 +318,98 @@ describe('Arena lifecycle and model turns', () => {
 
     // The game is over; there is no error turn to retry.
     expect(() => arena.retry()).toThrow(/出错/);
+  });
+
+  it('forfeits immediately when a truncated reply cannot be parsed', async () => {
+    let calls = 0;
+    const provider: ModelProvider = {
+      provider: 'openai',
+      async complete() {
+        calls += 1;
+        return {
+          text: '{"move":',
+          tokensIn: 10,
+          tokensOut: 500,
+          truncated: true,
+        };
+      },
+    };
+    const completions: ArenaState[] = [];
+    const arena = new Arena({
+      providerFactory: () => provider,
+      onGameComplete: (completion) => completions.push(completion.state),
+    });
+    activeArenas.push(arena);
+    startGame(arena, { moveDelayMs: 0, maxAttempts: 3 });
+
+    const finished = await waitFor(arena, (current) => current.phase === 'finished');
+    // Truncation with the same cap is deterministic: no retry.
+    expect(calls).toBe(1);
+    expect(finished.result).toMatchObject({ winner: 'black', reason: 'forfeit' });
+    expect(finished.result?.text).toContain('token 上限');
+    expect(finished.models.red?.lastError).toContain('token 上限');
+    expect(completions).toHaveLength(1);
+  });
+
+  it('forfeits immediately when the provider reports an empty truncated reply', async () => {
+    let calls = 0;
+    const provider: ModelProvider = {
+      provider: 'openai',
+      async complete() {
+        calls += 1;
+        throw new ProviderError('模型输出达到 token 上限，未产生可用内容', {
+          truncated: true,
+          retryable: false,
+        });
+      },
+    };
+    const arena = createArena(provider);
+    startGame(arena, { moveDelayMs: 0, maxAttempts: 3 });
+
+    const finished = await waitFor(arena, (current) => current.phase === 'finished');
+    expect(calls).toBe(1);
+    expect(finished.result).toMatchObject({ winner: 'black', reason: 'forfeit' });
+    expect(finished.result?.text).toContain('token 上限');
+  });
+
+  it('keeps prompt intensity independent from the API thinking level', async () => {
+    const provider: ModelProvider = {
+      provider: 'openai',
+      async complete(_setup, request) {
+        return reply(firstLegalFromPrompt(request));
+      },
+    };
+    const calls: CompletionRequest[] = [];
+    const capturing: ModelProvider = {
+      provider: 'openai',
+      async complete(modelSetup, request, signal) {
+        calls.push(request);
+        return provider.complete(modelSetup, request, signal);
+      },
+    };
+    const arena = createArena(capturing);
+    arena.start({
+      red: {
+        ...setup('red-model'),
+        thinkingLevel: 'high',
+        apiReasoning: true,
+        promptLevel: 'quick',
+        maxThinkingTokens: 1500,
+        maxCompletionTokens: 6000,
+      },
+      black: setup('black-model'),
+      settings: { moveDelayMs: 0, maxAttempts: 3 },
+    });
+
+    const state = await waitFor(arena, (current) => current.moves.length >= 1);
+    expect(calls[0]?.system).toContain('【应用内提示词：精简】');
+    expect(calls[0]?.system).not.toContain('【应用内提示词：详尽】');
+    expect(state.models.red).toMatchObject({
+      thinkingLevel: 'high',
+      promptLevel: 'quick',
+      maxThinkingTokens: 1500,
+      maxCompletionTokens: 6000,
+    });
   });
 
   it('marks an exhausted quota as a pausable error without retrying', async () => {

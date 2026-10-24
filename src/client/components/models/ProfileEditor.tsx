@@ -8,8 +8,10 @@ import type {
 } from '../../lib/profiles';
 import { EyeIcon, EyeOffIcon, Spinner } from '../Icons';
 import { ProfileTestResult } from './ProfileTestResult';
+import { PromptLevelField } from '../PromptLevelField';
 import { ReasoningTimeoutField } from '../ReasoningTimeoutField';
 import { ThinkingLevelField } from '../ThinkingLevelField';
+import { TokenLimitsField } from '../TokenLimitsField';
 
 interface ProfileEditorProps {
   mode: 'create' | 'edit';
@@ -189,6 +191,25 @@ export function ProfileEditor({
               ...(selected ? { thinkingLevel: selected } : {}),
             })
           }
+        />
+
+        <PromptLevelField
+          id="profile-promptLevel"
+          value={form.promptLevel}
+          thinkingLevel={form.thinkingLevel}
+          onChange={(level) => onChange({ promptLevel: level })}
+        />
+
+        <TokenLimitsField
+          idPrefix="profile-token"
+          provider={form.provider}
+          apiReasoning={form.apiReasoning}
+          thinkingLevel={form.thinkingLevel}
+          maxThinkingTokens={form.maxThinkingTokens}
+          maxCompletionTokens={form.maxCompletionTokens}
+          thinkingError={errors.maxThinkingTokens}
+          completionError={errors.maxCompletionTokens}
+          onChange={(patch) => onChange(patch)}
         />
 
         <ReasoningTimeoutField

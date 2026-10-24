@@ -126,6 +126,9 @@ export default function App() {
             ...patch,
             thinkingLevel: DEFAULT_THINKING_LEVEL,
             thinkingOptions: [...DEFAULT_THINKING_LEVELS],
+            promptLevel: null,
+            maxThinkingTokens: null,
+            maxCompletionTokens: null,
           }
         : { ...current, ...patch };
       return { ...previous, [side]: next };
@@ -200,6 +203,9 @@ export default function App() {
           profileId: profile.id,
           thinkingLevel: forms[side].thinkingLevel,
           apiReasoning: forms[side].apiReasoning,
+          promptLevel: forms[side].promptLevel,
+          maxThinkingTokens: forms[side].maxThinkingTokens,
+          maxCompletionTokens: forms[side].maxCompletionTokens,
           requestTimeoutSeconds: forms[side].requestTimeoutSeconds,
         };
         continue;
@@ -227,12 +233,24 @@ export default function App() {
 
     if (invalidSide) {
       const sideErrors = nextFormErrors[invalidSide];
-      const firstField = (['baseUrl', 'model', 'provider'] as const).find(
-        (field) => sideErrors[field],
-      );
+      const firstField = (
+        [
+          'baseUrl',
+          'model',
+          'provider',
+          'maxThinkingTokens',
+          'maxCompletionTokens',
+        ] as const
+      ).find((field) => sideErrors[field]);
       if (firstField) {
+        const elementId =
+          firstField === 'maxThinkingTokens'
+            ? `${invalidSide}-token-thinking`
+            : firstField === 'maxCompletionTokens'
+              ? `${invalidSide}-token-completion`
+              : `${invalidSide}-${firstField}`;
         window.requestAnimationFrame(() => {
-          document.getElementById(`${invalidSide}-${firstField}`)?.focus();
+          document.getElementById(elementId)?.focus();
         });
       }
       return;

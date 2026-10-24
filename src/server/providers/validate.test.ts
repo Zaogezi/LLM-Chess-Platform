@@ -93,6 +93,85 @@ describe('validateModelSetup', () => {
     }
   });
 
+  it('accepts an independent prompt level and token caps', () => {
+    const base = {
+      provider: 'openai',
+      baseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-chat',
+      apiReasoning: true,
+    };
+    const setup = validateModelSetup(
+      {
+        ...base,
+        promptLevel: 'deep',
+        maxThinkingTokens: 1500,
+        maxCompletionTokens: 6000,
+      },
+      'red',
+    );
+    expect(setup.promptLevel).toBe('deep');
+    expect(setup.maxThinkingTokens).toBe(1500);
+    expect(setup.maxCompletionTokens).toBe(6000);
+
+    const defaults = validateModelSetup(base, 'red');
+    expect(defaults.promptLevel).toBeUndefined();
+    expect(defaults.maxThinkingTokens).toBeUndefined();
+    expect(defaults.maxCompletionTokens).toBeUndefined();
+    expect(validateModelSetup({ ...base, promptLevel: null }, 'red').promptLevel).toBeUndefined();
+
+    for (const invalid of [1000, 32769, 1024.5, '1024']) {
+      expect(() =>
+        validateModelSetup({ ...base, maxThinkingTokens: invalid }, 'red'),
+      ).toThrow(/最大思考 token/);
+    }
+    for (const invalid of [255, 131073, 512.5, '512']) {
+      expect(() =>
+        validateModelSetup({ ...base, maxCompletionTokens: invalid }, 'red'),
+      ).toThrow(/最大输出 token/);
+    }
+    expect(() =>
+      validateModelSetup(
+        { ...base, maxThinkingTokens: 4096, maxCompletionTokens: 4096 },
+        'red',
+      ),
+    ).toThrow(/必须大于最大思考 token/);
+  });
+
+  it('requires the Anthropic completion cap to exceed the thinking budget', () => {
+    const base = {
+      provider: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1',
+      model: 'claude-test',
+      apiReasoning: true,
+      thinkingLevel: 'quick',
+    };
+    expect(
+      validateModelSetup({ ...base, maxCompletionTokens: 2049 }, 'red').maxCompletionTokens,
+    ).toBe(2049);
+    expect(() =>
+      validateModelSetup({ ...base, maxCompletionTokens: 1024 }, 'red'),
+    ).toThrow(/Anthropic 思考预算/);
+    expect(() =>
+      validateModelSetup(
+        { ...base, maxThinkingTokens: 1500, maxCompletionTokens: 2000 },
+        'red',
+      ),
+    ).not.toThrow();
+    expect(() =>
+      validateModelSetup(
+        { ...base, maxThinkingTokens: 2500, maxCompletionTokens: 2000 },
+        'red',
+      ),
+    ).toThrow(/最大输出 token/);
+    // Without API reasoning the budget is not part of the request.
+    expect(
+      validateModelSetup(
+        { ...base, apiReasoning: false, maxCompletionTokens: 1200 },
+        'red',
+      ).maxCompletionTokens,
+    ).toBe(1200);
+  });
+
   it('allows local OpenAI-compatible endpoints without a key', () => {
     const setup = validateModelSetup(
       {

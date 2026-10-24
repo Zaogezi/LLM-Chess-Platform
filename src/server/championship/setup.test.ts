@@ -216,6 +216,86 @@ describe('ChampionshipSetupStore parsing', () => {
     expect(store.save(saveRequest({ drafts: invalid }))).toBeNull();
   });
 
+  it('round-trips prompt level and token caps through the disk file', () => {
+    const filePath = temporaryFile();
+    const store = new ChampionshipSetupStore({ filePath });
+    const drafts = setupDrafts();
+    drafts[0] = {
+      ...drafts[0]!,
+      promptLevel: 'deep',
+      maxThinkingTokens: 4096,
+      maxCompletionTokens: 8192,
+    };
+    expect(store.save(saveRequest({ drafts }))).not.toBeNull();
+
+    const snapshot = new ChampionshipSetupStore({ filePath }).load();
+    expect(snapshot?.drafts[0]?.promptLevel).toBe('deep');
+    expect(snapshot?.drafts[0]?.maxThinkingTokens).toBe(4096);
+    expect(snapshot?.drafts[0]?.maxCompletionTokens).toBe(8192);
+    // Seats that never configured the new fields persist as null.
+    expect(snapshot?.drafts[1]?.promptLevel ?? null).toBeNull();
+    expect(snapshot?.drafts[1]?.maxThinkingTokens ?? null).toBeNull();
+    expect(snapshot?.drafts[1]?.maxCompletionTokens ?? null).toBeNull();
+  });
+
+  it('accepts explicit nulls for the prompt level and token caps', () => {
+    const store = new ChampionshipSetupStore({ filePath: null });
+    const drafts = setupDrafts();
+    drafts[0] = {
+      ...drafts[0]!,
+      promptLevel: null,
+      maxThinkingTokens: null,
+      maxCompletionTokens: null,
+    };
+    const saved = store.save(saveRequest({ drafts }));
+    expect(saved).not.toBeNull();
+    expect(saved?.drafts[0]?.promptLevel ?? null).toBeNull();
+    expect(saved?.drafts[0]?.maxThinkingTokens ?? null).toBeNull();
+    expect(saved?.drafts[0]?.maxCompletionTokens ?? null).toBeNull();
+  });
+
+  it.each<[string, Partial<ChampionshipSetupDraft>]>([
+    ['an empty prompt level', { promptLevel: '' }],
+    ['a blank prompt level', { promptLevel: '   ' }],
+    ['a non-string prompt level', { promptLevel: 2 as never }],
+    ['an over-long prompt level', { promptLevel: 'x'.repeat(65) }],
+    ['a fractional thinking cap', { maxThinkingTokens: 4096.5 }],
+    ['a thinking cap below 1024', { maxThinkingTokens: 1023 }],
+    ['a thinking cap above 32768', { maxThinkingTokens: 32769 }],
+    ['a non-numeric thinking cap', { maxThinkingTokens: '4096' as never }],
+    ['a fractional completion cap', { maxCompletionTokens: 8192.5 }],
+    ['a completion cap below 256', { maxCompletionTokens: 255 }],
+    ['a completion cap above 131072', { maxCompletionTokens: 131073 }],
+    ['a non-numeric completion cap', { maxCompletionTokens: '8192' as never }],
+  ])('rejects a draft with %s', (_label, patch) => {
+    const drafts = setupDrafts();
+    drafts[0] = { ...drafts[0]!, ...patch };
+    expect(new ChampionshipSetupStore({ filePath: null }).save(saveRequest({ drafts }))).toBeNull();
+  });
+
+  it('loads a version-1 file written before the new model fields existed', () => {
+    const filePath = temporaryFile();
+    // setupDrafts() has no promptLevel/token-cap keys, mimicking an old file.
+    const payload = {
+      version: 1,
+      savedAt: Date.now(),
+      drafts: setupDrafts(),
+      draw: null,
+      concurrency: 2,
+    };
+    writeFileSync(filePath, JSON.stringify(payload), 'utf8');
+
+    const store = new ChampionshipSetupStore({ filePath });
+    expect(store.has()).toBe(true);
+    const snapshot = store.load();
+    expect(snapshot?.drafts).toHaveLength(CHAMPIONSHIP_SETUP_DRAFT_COUNT);
+    expect(snapshot?.drafts[0]?.promptLevel ?? null).toBeNull();
+    expect(snapshot?.drafts[0]?.maxThinkingTokens ?? null).toBeNull();
+    expect(snapshot?.drafts[0]?.maxCompletionTokens ?? null).toBeNull();
+    expect(snapshot?.draw).toBeNull();
+    expect(snapshot?.concurrency).toBe(2);
+  });
+
   it('ignores a corrupt JSON file and warns', () => {
     const filePath = temporaryFile();
     writeFileSync(filePath, '{"version":1,"drafts":oops', 'utf8');

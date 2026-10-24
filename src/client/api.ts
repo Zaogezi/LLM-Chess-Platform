@@ -35,6 +35,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/** Older servers/clients omit these fields; only present values are checked. */
+function isOptionalPromptLevel(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && value.trim().length > 0)
+  );
+}
+
+function isOptionalTokenCap(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'number' && Number.isInteger(value) && value > 0)
+  );
+}
+
 function isArenaState(value: unknown): value is ArenaState {
   return (
     isRecord(value) &&
@@ -282,6 +299,9 @@ function isModelProfileView(value: unknown): value is ModelProfileView {
     Array.isArray(value.thinkingLevels) &&
     value.thinkingLevels.every((level) => typeof level === 'string' && level.trim().length > 0) &&
     typeof value.apiReasoning === 'boolean' &&
+    isOptionalPromptLevel(value.promptLevel) &&
+    isOptionalTokenCap(value.maxThinkingTokens) &&
+    isOptionalTokenCap(value.maxCompletionTokens) &&
     (value.requestTimeoutSeconds === undefined ||
       value.requestTimeoutSeconds === null ||
       typeof value.requestTimeoutSeconds === 'number') &&

@@ -1,6 +1,7 @@
 import type { ModelProfileView } from '../../../shared/protocol';
 import type { ProfileTestState } from '../../lib/profiles';
 import { profileProviderLabel } from '../../lib/profiles';
+import { describeTokenLimits, promptLevelLabel } from '../../lib/format';
 import { Spinner } from '../Icons';
 import { ProfileTestResult } from './ProfileTestResult';
 
@@ -29,6 +30,10 @@ export function ProfileCard({
   onEdit,
   onDelete,
 }: ProfileCardProps) {
+  const tokenLimitText = describeTokenLimits(
+    profile.maxThinkingTokens,
+    profile.maxCompletionTokens,
+  );
   return (
     <article
       className={`profile-card${selected ? ' is-selected' : ''}`}
@@ -45,6 +50,18 @@ export function ProfileCard({
               <span>{profileProviderLabel(profile.provider)}</span>
               <i aria-hidden="true">·</i>
               <code>{profile.model}</code>
+              {profile.promptLevel ? (
+                <>
+                  <i aria-hidden="true">·</i>
+                  <span>提示 {promptLevelLabel(profile.promptLevel)}</span>
+                </>
+              ) : null}
+              {tokenLimitText ? (
+                <>
+                  <i aria-hidden="true">·</i>
+                  <span>{tokenLimitText}</span>
+                </>
+              ) : null}
               {profile.requestTimeoutSeconds ? (
                 <>
                   <i aria-hidden="true">·</i>

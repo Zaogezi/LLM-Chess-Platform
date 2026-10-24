@@ -115,6 +115,9 @@ export default function ModelLibraryApp() {
             ...patch,
             thinkingLevel: DEFAULT_THINKING_LEVEL,
             thinkingOptions: [...DEFAULT_THINKING_LEVELS],
+            promptLevel: null,
+            maxThinkingTokens: null,
+            maxCompletionTokens: null,
           }
         : { ...previous, ...patch };
     });
@@ -122,7 +125,14 @@ export default function ModelLibraryApp() {
       if (Object.keys(previous).length === 0) return previous;
       const next = { ...previous };
       for (const key of Object.keys(patch) as Array<keyof ProfileForm>) {
-        if (key === 'name' || key === 'provider' || key === 'baseUrl' || key === 'model') {
+        if (
+          key === 'name' ||
+          key === 'provider' ||
+          key === 'baseUrl' ||
+          key === 'model' ||
+          key === 'maxThinkingTokens' ||
+          key === 'maxCompletionTokens'
+        ) {
           delete next[key];
         }
       }
@@ -137,11 +147,24 @@ export default function ModelLibraryApp() {
   };
 
   const focusFirstError = (nextErrors: ProfileFormErrors) => {
-    const order = ['name', 'baseUrl', 'model', 'provider'] as const;
+    const order = [
+      'name',
+      'baseUrl',
+      'model',
+      'provider',
+      'maxThinkingTokens',
+      'maxCompletionTokens',
+    ] as const;
     const field = order.find((candidate) => nextErrors[candidate]);
     if (field) {
+      const elementId =
+        field === 'maxThinkingTokens'
+          ? 'profile-token-thinking'
+          : field === 'maxCompletionTokens'
+            ? 'profile-token-completion'
+            : `profile-${field}`;
       window.requestAnimationFrame(() => {
-        document.getElementById(`profile-${field}`)?.focus();
+        document.getElementById(elementId)?.focus();
       });
     }
   };

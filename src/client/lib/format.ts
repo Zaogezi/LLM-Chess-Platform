@@ -8,9 +8,10 @@ import type {
 } from '../../shared/protocol';
 import {
   API_THINKING_OUTPUT_TOKENS,
+  PROMPT_TIER_LABELS,
   nativeReasoningEffort,
-  nativeThinkingBudget,
   requestTimeoutSecondsFor,
+  thinkingBudgetTokens,
   thinkingTierOf,
 } from '../../shared/protocol';
 import { SIDE_LABEL } from './chess';
@@ -65,6 +66,50 @@ export function thinkingLevelLabel(level: ThinkingLevel): string {
   return known ?? (value || TIER_LABELS.balanced);
 }
 
+/** 精简 / 标准 / 详尽 label for an in-app prompt level. */
+export function promptLevelLabel(level: ThinkingLevel): string {
+  return PROMPT_TIER_LABELS[thinkingTierOf(level)];
+}
+
+/**
+ * Explain the in-app prompt intensity relative to the API thinking level.
+ * Prompt level never changes the provider-native reasoning parameter.
+ */
+export function promptLevelHint(
+  promptLevel: ThinkingLevel | null | undefined,
+  thinkingLevel: ThinkingLevel,
+): string {
+  const apiLabel = thinkingLevelLabel(thinkingLevel);
+  if (!promptLevel?.trim()) {
+    return `应用内提示词跟随思考强度（${apiLabel}），不单独覆写。`;
+  }
+  return `应用内提示词为${promptLevelLabel(promptLevel)}；API 推理参数仍按思考强度（${apiLabel}）发送。`;
+}
+
+/** Compact token cap such as "4.0k", or null when the cap is not set. */
+export function formatTokenCap(value: number | null | undefined): string | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return formatTokenCount(value);
+}
+
+/**
+ * "思考上限 4.0k · 输出上限 8.0k" for cards and tooltips, or null when both
+ * caps are unset (the "no limit" defaults of older setups).
+ */
+export function describeTokenLimits(
+  maxThinkingTokens?: number | null,
+  maxCompletionTokens?: number | null,
+): string | null {
+  const parts: string[] = [];
+  const thinking = formatTokenCap(maxThinkingTokens);
+  const completion = formatTokenCap(maxCompletionTokens);
+  if (thinking) parts.push(`思考上限 ${thinking}`);
+  if (completion) parts.push(`输出上限 ${completion}`);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 export function thinkingLevelHint(
   level: ThinkingLevel,
   requestTimeoutSeconds?: number | null,
@@ -85,13 +130,21 @@ export function thinkingLevelHint(
 export function describeApiReasoning(
   provider: ProviderKind,
   level: ThinkingLevel,
+  maxThinkingTokens?: number | null,
+  maxCompletionTokens?: number | null,
 ): string {
   if (provider === 'anthropic') {
-    const budget = nativeThinkingBudget(level);
+    const budget = thinkingBudgetTokens(level, maxThinkingTokens);
     if (budget === null) {
       return '当前档位关闭扩展思考，不发送 thinking 参数。';
     }
-    return `发送扩展思考：budget_tokens=${budget}，max_tokens=${budget + API_THINKING_OUTPUT_TOKENS}（模型需支持 extended thinking）。`;
+    const output =
+      typeof maxCompletionTokens === 'number' &&
+      Number.isFinite(maxCompletionTokens) &&
+      maxCompletionTokens > 0
+        ? Math.round(maxCompletionTokens)
+        : budget + API_THINKING_OUTPUT_TOKENS;
+    return `发送扩展思考：budget_tokens=${budget}，max_tokens=${output}（模型需支持 extended thinking）。`;
   }
   const effort = nativeReasoningEffort(level);
   if (effort === null) {

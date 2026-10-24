@@ -44,6 +44,12 @@ interface StoredModelProfile {
   thinkingLevel: ThinkingLevel;
   thinkingLevels: ThinkingLevel[];
   apiReasoning: boolean;
+  /** In-app prompt intensity; null follows the API thinking level. */
+  promptLevel: ThinkingLevel | null;
+  /** Hard thinking-token cap; null uses the provider/tier default. */
+  maxThinkingTokens: number | null;
+  /** Hard completion-token cap; null sends no cap. */
+  maxCompletionTokens: number | null;
   /** Independent single-step wait override in seconds; null follows the tier. */
   requestTimeoutSeconds: number | null;
   createdAt: number;
@@ -63,6 +69,9 @@ export interface ValidatedProfileFields {
   thinkingLevel: ThinkingLevel;
   thinkingLevels: ThinkingLevel[];
   apiReasoning: boolean;
+  promptLevel?: ThinkingLevel | null;
+  maxThinkingTokens?: number | null;
+  maxCompletionTokens?: number | null;
   requestTimeoutSeconds?: number | null;
 }
 
@@ -119,6 +128,9 @@ function validateFields(value: unknown): ValidatedProfileFields {
     thinkingLevel: levels.selected,
     thinkingLevels: levels.levels,
     apiReasoning: Boolean(setup.apiReasoning),
+    promptLevel: setup.promptLevel ?? null,
+    maxThinkingTokens: setup.maxThinkingTokens ?? null,
+    maxCompletionTokens: setup.maxCompletionTokens ?? null,
     requestTimeoutSeconds: setup.requestTimeoutSeconds ?? null,
   };
 }
@@ -208,6 +220,9 @@ function toView(profile: StoredModelProfile): ModelProfileView {
     thinkingLevel: profile.thinkingLevel,
     thinkingLevels: [...profile.thinkingLevels],
     apiReasoning: profile.apiReasoning,
+    promptLevel: profile.promptLevel ?? null,
+    maxThinkingTokens: profile.maxThinkingTokens ?? null,
+    maxCompletionTokens: profile.maxCompletionTokens ?? null,
     requestTimeoutSeconds: profile.requestTimeoutSeconds,
     keyConfigured: Boolean(profile.apiKey),
     keyHint: keyHint(profile.apiKey),
@@ -233,6 +248,19 @@ function isStoredProfile(value: unknown): value is StoredModelProfile {
       profile.thinkingLevel.trim().length > 0 &&
       (profile.thinkingLevels === undefined || Array.isArray(profile.thinkingLevels)) &&
       typeof profile.apiReasoning === 'boolean' &&
+      (profile.promptLevel === undefined ||
+        profile.promptLevel === null ||
+        (typeof profile.promptLevel === 'string' && profile.promptLevel.trim().length > 0)) &&
+      (profile.maxThinkingTokens === undefined ||
+        profile.maxThinkingTokens === null ||
+        (typeof profile.maxThinkingTokens === 'number' &&
+          Number.isInteger(profile.maxThinkingTokens) &&
+          profile.maxThinkingTokens > 0)) &&
+      (profile.maxCompletionTokens === undefined ||
+        profile.maxCompletionTokens === null ||
+        (typeof profile.maxCompletionTokens === 'number' &&
+          Number.isInteger(profile.maxCompletionTokens) &&
+          profile.maxCompletionTokens > 0)) &&
       (profile.requestTimeoutSeconds === undefined ||
         profile.requestTimeoutSeconds === null ||
         (typeof profile.requestTimeoutSeconds === 'number' &&
@@ -293,6 +321,13 @@ export class ModelProfileStore {
       displayName: profile.name,
       thinkingLevel: profile.thinkingLevel,
       apiReasoning: profile.apiReasoning,
+      ...(profile.promptLevel ? { promptLevel: profile.promptLevel } : {}),
+      ...(profile.maxThinkingTokens !== null
+        ? { maxThinkingTokens: profile.maxThinkingTokens }
+        : {}),
+      ...(profile.maxCompletionTokens !== null
+        ? { maxCompletionTokens: profile.maxCompletionTokens }
+        : {}),
       requestTimeoutSeconds: profile.requestTimeoutSeconds,
     };
   }
@@ -314,6 +349,9 @@ export class ModelProfileStore {
       thinkingLevel: input.thinkingLevel,
       thinkingLevels: [...input.thinkingLevels],
       apiReasoning: input.apiReasoning,
+      promptLevel: input.promptLevel ?? null,
+      maxThinkingTokens: input.maxThinkingTokens ?? null,
+      maxCompletionTokens: input.maxCompletionTokens ?? null,
       requestTimeoutSeconds: input.requestTimeoutSeconds ?? null,
       createdAt: now,
       updatedAt: now,
@@ -336,6 +374,9 @@ export class ModelProfileStore {
     profile.thinkingLevel = input.thinkingLevel;
     profile.thinkingLevels = [...input.thinkingLevels];
     profile.apiReasoning = input.apiReasoning;
+    profile.promptLevel = input.promptLevel ?? null;
+    profile.maxThinkingTokens = input.maxThinkingTokens ?? null;
+    profile.maxCompletionTokens = input.maxCompletionTokens ?? null;
     profile.requestTimeoutSeconds = input.requestTimeoutSeconds ?? null;
     if (input.apiKey.mode === 'replace') {
       profile.apiKey = input.apiKey.value;
@@ -412,6 +453,22 @@ export class ModelProfileStore {
           thinkingLevel: selected.selected,
           thinkingLevels: selected.levels,
           apiReasoning: raw.apiReasoning,
+          promptLevel:
+            typeof raw.promptLevel === 'string' && raw.promptLevel.trim()
+              ? raw.promptLevel
+              : null,
+          maxThinkingTokens:
+            typeof raw.maxThinkingTokens === 'number' &&
+            Number.isInteger(raw.maxThinkingTokens) &&
+            raw.maxThinkingTokens > 0
+              ? raw.maxThinkingTokens
+              : null,
+          maxCompletionTokens:
+            typeof raw.maxCompletionTokens === 'number' &&
+            Number.isInteger(raw.maxCompletionTokens) &&
+            raw.maxCompletionTokens > 0
+              ? raw.maxCompletionTokens
+              : null,
           requestTimeoutSeconds:
             typeof raw.requestTimeoutSeconds === 'number' &&
             Number.isInteger(raw.requestTimeoutSeconds) &&

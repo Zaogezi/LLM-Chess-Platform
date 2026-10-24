@@ -60,6 +60,41 @@ export const THINKING_LEVEL_TIMEOUT_SECONDS: Record<ThinkingTier, number> = {
 export const REQUEST_TIMEOUT_MIN_SECONDS = 5;
 export const REQUEST_TIMEOUT_MAX_SECONDS = 1800;
 
+/**
+ * Optional hard caps for one model reply. Thinking tokens are the provider's
+ * hidden reasoning budget; completion tokens also cover the visible JSON answer
+ * (OpenAI counts reasoning tokens inside completion tokens).
+ */
+export const MAX_THINKING_TOKENS_MIN = 1024;
+export const MAX_THINKING_TOKENS_MAX = 32768;
+export const MAX_COMPLETION_TOKENS_MIN = 256;
+export const MAX_COMPLETION_TOKENS_MAX = 131072;
+
+/**
+ * In-app prompt intensities. They share the semantic tier names with thinking
+ * levels but control only the prompt text (directive, reason length, recent
+ * move history), never the provider-native reasoning parameter.
+ */
+export const PROMPT_LEVELS = THINKING_LEVELS;
+export const PROMPT_TIER_LABELS: Record<ThinkingTier, string> = {
+  quick: '精简',
+  balanced: '标准',
+  deep: '详尽',
+};
+
+/**
+ * Resolve the in-app prompt level: an explicit prompt level wins, otherwise the
+ * prompt follows the API thinking level (backwards compatible with old setups).
+ */
+export function effectivePromptLevel(
+  thinkingLevel?: ThinkingLevel | null,
+  promptLevel?: ThinkingLevel | null,
+): ThinkingLevel {
+  const prompt = promptLevel?.trim();
+  if (prompt) return prompt;
+  return thinkingLevel?.trim() || DEFAULT_THINKING_LEVEL;
+}
+
 export function requestTimeoutSecondsFor(
   level: ThinkingLevel,
   overrideSeconds?: number | null,
@@ -126,6 +161,26 @@ export function nativeThinkingBudget(level: ThinkingLevel): number | null {
 }
 
 /**
+ * Anthropic thinking budget after applying an explicit `maxThinkingTokens`
+ * override. The tier budget is the fallback when no override is configured.
+ */
+export function thinkingBudgetTokens(
+  level: ThinkingLevel,
+  maxThinkingTokens?: number | null,
+): number | null {
+  const fallback = nativeThinkingBudget(level);
+  if (fallback === null) return null;
+  if (
+    typeof maxThinkingTokens === 'number' &&
+    Number.isFinite(maxThinkingTokens) &&
+    maxThinkingTokens > 0
+  ) {
+    return Math.round(maxThinkingTokens);
+  }
+  return fallback;
+}
+
+/**
  * Native API reasoning settings used when a model opts into "API 推理参数".
  * OpenAI-compatible Chat Completions uses `reasoning_effort`; Anthropic uses
  * extended thinking with a token budget. The UI shows these values verbatim.
@@ -159,6 +214,24 @@ export interface ModelSetup {
    */
   apiReasoning?: boolean;
   /**
+   * In-app prompt intensity (directive, reason length, recent-move history).
+   * Omitted/null follows `thinkingLevel`; it never changes API reason
+   * parameters, which stay tied to `thinkingLevel`.
+   */
+  promptLevel?: ThinkingLevel | null;
+  /**
+   * Hard cap for provider-native thinking/reasoning tokens. Honoured by
+   * Anthropic (`thinking.budget_tokens`) and OpenRouter
+   * (`reasoning.max_tokens`); ignored by other OpenAI-compatible gateways.
+   */
+  maxThinkingTokens?: number | null;
+  /**
+   * Hard cap for total completion tokens, including hidden reasoning where the
+   * provider counts it there. Refuses to send nothing when the gateway is
+   * unknown: the parameter name is chosen per endpoint.
+   */
+  maxCompletionTokens?: number | null;
+  /**
    * Optional override for the single-step wait limit in seconds. Omitted/null
    * falls back to the thinking-tier default (60 / 120 / 240 s).
    */
@@ -179,6 +252,9 @@ export interface ModelProfileSelection {
   /** Per-game overrides; omitted values use the saved profile defaults. */
   thinkingLevel?: ThinkingLevel;
   apiReasoning?: boolean;
+  promptLevel?: ThinkingLevel | null;
+  maxThinkingTokens?: number | null;
+  maxCompletionTokens?: number | null;
   /** Per-game wait-limit override; omitted/null uses the saved profile value. */
   requestTimeoutSeconds?: number | null;
 }
@@ -216,6 +292,12 @@ export interface ModelView {
   model: string;
   displayName: string;
   thinkingLevel: ThinkingLevel;
+  /** In-app prompt intensity; null/absent follows the thinking level. */
+  promptLevel?: ThinkingLevel | null;
+  /** Hard thinking-token cap, or null/absent when the tier default applies. */
+  maxThinkingTokens?: number | null;
+  /** Hard completion-token cap, or null/absent when no cap is sent. */
+  maxCompletionTokens?: number | null;
   /** Independent wait override in seconds; null/absent follows the thinking tier. */
   requestTimeoutSeconds?: number | null;
   /** Whether this match sends provider-native reasoning parameters. */
@@ -293,6 +375,12 @@ export interface ModelProfileView {
   /** Levels discovered from the model API, or built-in fallbacks. */
   thinkingLevels: ThinkingLevel[];
   apiReasoning: boolean;
+  /** In-app prompt intensity; null/absent follows the thinking level. */
+  promptLevel?: ThinkingLevel | null;
+  /** Hard thinking-token cap; null/absent uses the tier budget. */
+  maxThinkingTokens?: number | null;
+  /** Hard completion-token cap; null/absent sends no cap. */
+  maxCompletionTokens?: number | null;
   /** Independent single-step wait override in seconds; null/absent follows the tier. */
   requestTimeoutSeconds?: number | null;
   keyConfigured: boolean;
@@ -315,6 +403,9 @@ export interface ModelProfileCreateRequest {
   /** Omit to use the built-in levels; pass values discovered from the API. */
   thinkingLevels?: ThinkingLevel[];
   apiReasoning?: boolean;
+  promptLevel?: ThinkingLevel | null;
+  maxThinkingTokens?: number | null;
+  maxCompletionTokens?: number | null;
   /** Independent wait override in seconds; omit or null to follow the tier. */
   requestTimeoutSeconds?: number | null;
   apiKey?: string;
@@ -440,6 +531,12 @@ export interface TournamentModelView {
   model: string;
   thinkingLevel: ThinkingLevel;
   apiReasoning: boolean;
+  /** In-app prompt intensity; null/absent follows the thinking level. */
+  promptLevel?: ThinkingLevel | null;
+  /** Hard thinking-token cap; null/absent uses the tier budget. */
+  maxThinkingTokens?: number | null;
+  /** Hard completion-token cap; null/absent sends no cap. */
+  maxCompletionTokens?: number | null;
   /** Independent wait override in seconds; null/absent follows the thinking tier. */
   requestTimeoutSeconds?: number | null;
   keyConfigured: boolean;
@@ -672,6 +769,12 @@ export interface QualifierEntrantView {
   model: string;
   thinkingLevel: ThinkingLevel;
   apiReasoning: boolean;
+  /** In-app prompt intensity; null/absent follows the thinking level. */
+  promptLevel?: ThinkingLevel | null;
+  /** Hard thinking-token cap; null/absent uses the tier budget. */
+  maxThinkingTokens?: number | null;
+  /** Hard completion-token cap; null/absent sends no cap. */
+  maxCompletionTokens?: number | null;
   /** Independent wait override in seconds; null/absent follows the thinking tier. */
   requestTimeoutSeconds?: number | null;
   keyConfigured: boolean;
@@ -865,6 +968,12 @@ export interface ChampionshipSetupDraft {
   thinkingLevel: ThinkingLevel;
   thinkingOptions: ThinkingLevel[];
   apiReasoning: boolean;
+  /** In-app prompt intensity; null/absent follows the thinking level. */
+  promptLevel?: ThinkingLevel | null;
+  /** Hard thinking-token cap; null/absent uses the tier budget. */
+  maxThinkingTokens?: number | null;
+  /** Hard completion-token cap; null/absent sends no cap. */
+  maxCompletionTokens?: number | null;
   apiKey: string;
   /** Independent wait override in seconds; null/absent follows the thinking tier. */
   requestTimeoutSeconds?: number | null;

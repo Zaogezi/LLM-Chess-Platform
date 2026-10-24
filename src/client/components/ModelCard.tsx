@@ -6,13 +6,18 @@ import { PRESETS, PROVIDER_LABELS, PROVIDER_OPTIONS, presetByKey } from '../pres
 import { SIDE_DUTY, SIDE_LABEL, SIDE_SEAL } from '../lib/chess';
 import {
   describeApiReasoning,
+  describeTokenLimits,
+  promptLevelHint,
+  promptLevelLabel,
   thinkingLevelHint,
   thinkingLevelLabel,
 } from '../lib/format';
 import { profileKeyLabel } from '../lib/profiles';
 import { EyeIcon, EyeOffIcon, LockIcon } from './Icons';
+import { PromptLevelField } from './PromptLevelField';
 import { ReasoningTimeoutField } from './ReasoningTimeoutField';
 import { ThinkingLevelField } from './ThinkingLevelField';
+import { TokenLimitsField } from './TokenLimitsField';
 
 interface ModelCardProps {
   side: Side;
@@ -82,9 +87,36 @@ export function ModelCard({
   const displayProvider = PROVIDER_LABELS[providerKind];
   const displayThinkingLevel = locked && serverModel ? serverModel.thinkingLevel : form.thinkingLevel;
   const displayApiReasoning = locked && serverModel ? serverModel.apiReasoning : form.apiReasoning;
+  const displayPromptLevel =
+    locked && serverModel ? serverModel.promptLevel ?? null : form.promptLevel;
+  const displayMaxThinkingTokens =
+    locked && serverModel ? serverModel.maxThinkingTokens ?? null : form.maxThinkingTokens;
+  const displayMaxCompletionTokens =
+    locked && serverModel ? serverModel.maxCompletionTokens ?? null : form.maxCompletionTokens;
   const displayRequestTimeout =
     locked && serverModel ? serverModel.requestTimeoutSeconds ?? null : form.requestTimeoutSeconds;
+  const tokenLimitText = describeTokenLimits(
+    displayMaxThinkingTokens,
+    displayMaxCompletionTokens,
+  );
+  const hasTokenLimit = tokenLimitText !== null;
   const hasErrors = Object.keys(errors).length > 0;
+
+  const summaryTitle = [
+    thinkingLevelHint(displayThinkingLevel, displayRequestTimeout),
+    promptLevelHint(displayPromptLevel, displayThinkingLevel),
+    displayApiReasoning
+      ? describeApiReasoning(
+          providerKind,
+          displayThinkingLevel,
+          displayMaxThinkingTokens,
+          displayMaxCompletionTokens,
+        )
+      : '',
+    tokenLimitText ? `Token 上限：${tokenLimitText}。` : '未设置 token 上限。',
+  ]
+    .filter((part) => part.length > 0)
+    .join(' ');
 
   const baseUrlErrorId = `${side}-baseUrl-error`;
   const modelErrorId = `${side}-model-error`;
@@ -106,18 +138,28 @@ export function ModelCard({
             {displayModel}
           </span>
           <span className="model-card__provider">{displayProvider}</span>
-          <span
-            className="thinking-badge"
-            title={`${thinkingLevelHint(displayThinkingLevel, displayRequestTimeout)}${
-              displayApiReasoning
-                ? ` ${describeApiReasoning(providerKind, displayThinkingLevel)}`
-                : ''
-            }`}
-          >
+          <span className="thinking-badge" title={summaryTitle}>
             {thinkingLevelLabel(displayThinkingLevel)}
             {displayApiReasoning ? ' · API' : ''}
           </span>
         </span>
+        {(displayPromptLevel || hasTokenLimit || (locked && serverModel)) && (
+          <span className="model-card__limits">
+            {(displayPromptLevel || (locked && serverModel)) && (
+              <span
+                className="thinking-badge"
+                title={promptLevelHint(displayPromptLevel, displayThinkingLevel)}
+              >
+                提示 · {displayPromptLevel ? promptLevelLabel(displayPromptLevel) : '跟随'}
+              </span>
+            )}
+            {tokenLimitText && (
+              <span className="thinking-badge" title={`Token 上限：${tokenLimitText}`}>
+                {tokenLimitText}
+              </span>
+            )}
+          </span>
+        )}
       </span>
       <span className="model-card__tail">
         {locked ? (
@@ -307,6 +349,25 @@ export function ModelCard({
               ...(selected ? { thinkingLevel: selected } : {}),
             })
           }
+        />
+
+        <PromptLevelField
+          id={`${side}-promptLevel`}
+          value={form.promptLevel}
+          thinkingLevel={form.thinkingLevel}
+          onChange={(level) => onChange({ promptLevel: level })}
+        />
+
+        <TokenLimitsField
+          idPrefix={`${side}-token`}
+          provider={form.provider}
+          apiReasoning={form.apiReasoning}
+          thinkingLevel={form.thinkingLevel}
+          maxThinkingTokens={form.maxThinkingTokens}
+          maxCompletionTokens={form.maxCompletionTokens}
+          thinkingError={errors.maxThinkingTokens}
+          completionError={errors.maxCompletionTokens}
+          onChange={(patch) => onChange(patch)}
         />
 
         <ReasoningTimeoutField

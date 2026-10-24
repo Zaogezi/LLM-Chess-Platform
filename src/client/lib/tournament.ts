@@ -44,6 +44,12 @@ export interface TournamentModelDraft {
   apiReasoning: boolean;
   apiKey: string;
   showKey: boolean;
+  /** In-app prompt intensity; null follows the API thinking level. */
+  promptLevel: ThinkingLevel | null;
+  /** Hard thinking-token cap; null uses the provider/tier default. */
+  maxThinkingTokens: number | null;
+  /** Hard total-output cap; null sends no cap. */
+  maxCompletionTokens: number | null;
   /** Independent per-step wait override; null follows the thinking tier. */
   requestTimeoutSeconds: number | null;
 }
@@ -54,6 +60,8 @@ export interface TournamentFieldErrors {
   provider?: string;
   baseUrl?: string;
   model?: string;
+  maxThinkingTokens?: string;
+  maxCompletionTokens?: string;
   requestTimeoutSeconds?: string;
 }
 
@@ -149,6 +157,9 @@ export function createTournamentDraft(
     apiReasoning: config.apiReasoning,
     apiKey: '',
     showKey: false,
+    promptLevel: config.promptLevel,
+    maxThinkingTokens: config.maxThinkingTokens,
+    maxCompletionTokens: config.maxCompletionTokens,
     requestTimeoutSeconds: config.requestTimeoutSeconds,
   };
 }
@@ -190,6 +201,9 @@ export function applyPresetToDraft(
     thinkingLevel: 'balanced',
     thinkingOptions: [...DEFAULT_THINKING_LEVELS],
     apiReasoning: next.provider === 'openai',
+    promptLevel: null,
+    maxThinkingTokens: null,
+    maxCompletionTokens: null,
     requestTimeoutSeconds: null,
     name: shouldAdoptLabel ? next.label : draft.name,
   };
@@ -221,6 +235,9 @@ export function applyProfileToDraft(
     thinkingLevel: profile.thinkingLevel,
     thinkingOptions: [...profile.thinkingLevels],
     apiReasoning: profile.apiReasoning,
+    promptLevel: profile.promptLevel ?? null,
+    maxThinkingTokens: profile.maxThinkingTokens ?? null,
+    maxCompletionTokens: profile.maxCompletionTokens ?? null,
     requestTimeoutSeconds: profile.requestTimeoutSeconds ?? null,
     apiKey: '',
     showKey: false,
@@ -319,6 +336,31 @@ export function validateTournamentDrafts(
   };
 }
 
+/**
+ * Optional per-game overrides shared by every request shape. Fields left at
+ * their "follow / no limit" default (null) are omitted, exactly like the
+ * existing independent timeout override.
+ */
+function draftOptionalOverrides(draft: TournamentModelDraft): {
+  promptLevel?: ThinkingLevel;
+  maxThinkingTokens?: number;
+  maxCompletionTokens?: number;
+  requestTimeoutSeconds?: number;
+} {
+  return {
+    ...(draft.promptLevel != null ? { promptLevel: draft.promptLevel } : {}),
+    ...(draft.maxThinkingTokens != null
+      ? { maxThinkingTokens: draft.maxThinkingTokens }
+      : {}),
+    ...(draft.maxCompletionTokens != null
+      ? { maxCompletionTokens: draft.maxCompletionTokens }
+      : {}),
+    ...(draft.requestTimeoutSeconds != null
+      ? { requestTimeoutSeconds: draft.requestTimeoutSeconds }
+      : {}),
+  };
+}
+
 /** One draft as the wire request shared by tournaments, championships and qualifiers. */
 export function draftToModelRequest(draft: TournamentModelDraft): TournamentModelRequest {
   if (draft.profileId) {
@@ -327,9 +369,7 @@ export function draftToModelRequest(draft: TournamentModelDraft): TournamentMode
       profileId: draft.profileId,
       thinkingLevel: draft.thinkingLevel,
       apiReasoning: draft.apiReasoning,
-      ...(draft.requestTimeoutSeconds !== null
-        ? { requestTimeoutSeconds: draft.requestTimeoutSeconds }
-        : {}),
+      ...draftOptionalOverrides(draft),
     };
   }
   return {
@@ -340,9 +380,7 @@ export function draftToModelRequest(draft: TournamentModelDraft): TournamentMode
     apiKey: draft.apiKey,
     thinkingLevel: draft.thinkingLevel,
     apiReasoning: draft.apiReasoning,
-    ...(draft.requestTimeoutSeconds !== null
-      ? { requestTimeoutSeconds: draft.requestTimeoutSeconds }
-      : {}),
+    ...draftOptionalOverrides(draft),
   };
 }
 

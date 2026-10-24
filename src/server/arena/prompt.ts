@@ -5,7 +5,11 @@ import type {
   ThinkingLevel,
   ThinkingTier,
 } from '../../shared/protocol';
-import { DEFAULT_THINKING_LEVEL, thinkingTierOf } from '../../shared/protocol';
+import {
+  DEFAULT_THINKING_LEVEL,
+  PROMPT_TIER_LABELS,
+  thinkingTierOf,
+} from '../../shared/protocol';
 import { fenChar, otherSide, pieceName, sideName } from './labels';
 
 export interface PromptMove {
@@ -34,23 +38,28 @@ interface ThinkingSpec {
   recentMoveLimit: number;
 }
 
-const THINKING_SPECS: Record<ThinkingTier, ThinkingSpec> = {
+/**
+ * Prompt intensities are independent from the provider-native reasoning
+ * parameter: the API thinking level controls `reasoning_effort`/budget tokens,
+ * while this spec only shapes the prompt text and its output-length hints.
+ */
+const PROMPT_SPECS: Record<ThinkingTier, ThinkingSpec> = {
   quick: {
-    label: '快速',
+    label: PROMPT_TIER_LABELS.quick,
     directive:
       '追求效率：在心中快速筛选，优先选择稳健、直接、能立即改善局面的合法着法，不做长链推演，在有限等待时间内尽快落子。',
     reasonLimit: 30,
     recentMoveLimit: 6,
   },
   balanced: {
-    label: '标准',
+    label: PROMPT_TIER_LABELS.balanced,
     directive:
       '稳健评估：比较数个候选着法，检查将军、吃子、子力安全与关键线路，再给出最终着法。',
     reasonLimit: 60,
     recentMoveLimit: 10,
   },
   deep: {
-    label: '深思',
+    label: PROMPT_TIER_LABELS.deep,
     directive:
       '深入计算：至少比较三个候选着法，逐一审视对方最强回应、己方子力是否受攻、将帅安全与后续手段，选择最有利的一步，并充分利用等待时限。',
     reasonLimit: 120,
@@ -62,19 +71,19 @@ const START_CORRECTION_HINT =
   '若返回 Markdown、中文记谱或自然语言解释，均视为无效输出。';
 
 function specFor(level: ThinkingLevel): ThinkingSpec {
-  return THINKING_SPECS[thinkingTierOf(level)];
+  return PROMPT_SPECS[thinkingTierOf(level)];
 }
 
 export function buildSystemPrompt(
   side: Side,
-  thinkingLevel: ThinkingLevel = DEFAULT_THINKING_LEVEL,
+  promptLevel: ThinkingLevel = DEFAULT_THINKING_LEVEL,
 ): string {
-  const spec = specFor(thinkingLevel);
+  const spec = specFor(promptLevel);
   return [
     '你是一位中国象棋顶尖棋手，正在参加一场双模型对弈。',
     `本局你执${sideName(side)}。每一步都必须从系统提供的当前局面与合法着法中选择。`,
     '',
-    `【思考强度：${spec.label}】`,
+    `【应用内提示词：${spec.label}】`,
     spec.directive,
     '不论思考多深，最终都只输出规定格式的 JSON，不展示内部推演过程。',
     '',
@@ -132,12 +141,12 @@ function formatRecentMoves(context: PromptContext, limit: number): string {
 
 export function buildUserPrompt(
   context: PromptContext,
-  thinkingLevel: ThinkingLevel = DEFAULT_THINKING_LEVEL,
+  promptLevel: ThinkingLevel = DEFAULT_THINKING_LEVEL,
 ): string {
-  const spec = specFor(thinkingLevel);
+  const spec = specFor(promptLevel);
   return [
     `现在轮到${sideName(context.side)}走棋，第 ${context.moveNumber} 回合。`,
-    `本回合思考强度：${spec.label}。`,
+    `本回合提示词强度：${spec.label}。`,
     `FEN：${context.fen}`,
     '',
     '当前棋盘（. 表示空位）',
@@ -158,9 +167,9 @@ export function buildUserPrompt(
 export function buildCorrection(
   problem: string,
   legalMoves: PromptMove[],
-  thinkingLevel: ThinkingLevel = DEFAULT_THINKING_LEVEL,
+  promptLevel: ThinkingLevel = DEFAULT_THINKING_LEVEL,
 ): string {
-  const spec = specFor(thinkingLevel);
+  const spec = specFor(promptLevel);
   const list = legalMoves.length
     ? legalMoves.map((move) => move.ucci).join('、')
     : '（无）';

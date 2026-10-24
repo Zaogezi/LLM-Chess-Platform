@@ -108,6 +108,56 @@ describe('ModelProfileStore', () => {
     );
   });
 
+  it('persists prompt intensity and token caps independently', () => {
+    const filePath = tempFile();
+    const store = new ModelProfileStore({ filePath });
+    const created = store.create(
+      validateProfileCreate(
+        input({
+          promptLevel: 'quick',
+          maxThinkingTokens: 1500,
+          maxCompletionTokens: 6000,
+        }),
+      ),
+    );
+
+    expect(created.promptLevel).toBe('quick');
+    expect(created.maxThinkingTokens).toBe(1500);
+    expect(created.maxCompletionTokens).toBe(6000);
+    const setup = store.resolveSetup(created.id);
+    expect(setup?.promptLevel).toBe('quick');
+    expect(setup?.maxThinkingTokens).toBe(1500);
+    expect(setup?.maxCompletionTokens).toBe(6000);
+
+    const reloaded = new ModelProfileStore({ filePath });
+    expect(reloaded.find(created.id)?.promptLevel).toBe('quick');
+    expect(reloaded.find(created.id)?.maxThinkingTokens).toBe(1500);
+    expect(reloaded.find(created.id)?.maxCompletionTokens).toBe(6000);
+
+    const cleared = reloaded.update(
+      created.id,
+      validateProfileUpdate(
+        input({
+          promptLevel: null,
+          maxThinkingTokens: null,
+          maxCompletionTokens: null,
+          apiKey: undefined,
+        }),
+      ),
+    );
+    expect(cleared?.promptLevel).toBeNull();
+    expect(cleared?.maxThinkingTokens).toBeNull();
+    expect(cleared?.maxCompletionTokens).toBeNull();
+    expect(reloaded.resolveSetup(created.id)?.promptLevel).toBeUndefined();
+
+    expect(() => validateProfileCreate(input({ maxThinkingTokens: 1000 }))).toThrow(
+      /最大思考 token/,
+    );
+    expect(() => validateProfileCreate(input({ maxCompletionTokens: 200000 }))).toThrow(
+      /最大输出 token/,
+    );
+  });
+
   it('updates fields while keeping, replacing or clearing the secret', () => {
     const store = new ModelProfileStore({ filePath: null });
     const created = store.create(validateProfileCreate(input()));

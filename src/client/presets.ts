@@ -2,8 +2,13 @@ import type { ModelSetup, ProviderKind, Side, ThinkingLevel } from '../shared/pr
 import {
   DEFAULT_THINKING_LEVELS,
   DEFAULT_THINKING_LEVEL,
+  MAX_COMPLETION_TOKENS_MAX,
+  MAX_COMPLETION_TOKENS_MIN,
+  MAX_THINKING_TOKENS_MAX,
+  MAX_THINKING_TOKENS_MIN,
   REQUEST_TIMEOUT_MAX_SECONDS,
   REQUEST_TIMEOUT_MIN_SECONDS,
+  thinkingBudgetTokens,
 } from '../shared/protocol';
 
 export type PresetKey =
@@ -106,12 +111,26 @@ export interface ModelConfigForm {
   apiReasoning: boolean;
   apiKey: string;
   showKey: boolean;
+  /** In-app prompt intensity; null follows the API thinking level. */
+  promptLevel: ThinkingLevel | null;
+  /** Hard provider thinking-token cap; null uses the thinking-tier default. */
+  maxThinkingTokens: number | null;
+  /** Hard total-output cap; null sends no cap. */
+  maxCompletionTokens: number | null;
   /** Independent per-step wait override; null follows the thinking tier. */
   requestTimeoutSeconds: number | null;
 }
 
 export type ModelConfigErrors = Partial<
-  Record<'provider' | 'baseUrl' | 'model' | 'requestTimeoutSeconds', string>
+  Record<
+    | 'provider'
+    | 'baseUrl'
+    | 'model'
+    | 'maxThinkingTokens'
+    | 'maxCompletionTokens'
+    | 'requestTimeoutSeconds',
+    string
+  >
 >;
 
 export function presetByKey(key: PresetKey): Preset {
@@ -132,6 +151,9 @@ export function createModelConfig(presetKey: PresetKey): ModelConfigForm {
     apiReasoning: preset.provider === 'openai',
     apiKey: '',
     showKey: false,
+    promptLevel: null,
+    maxThinkingTokens: null,
+    maxCompletionTokens: null,
     requestTimeoutSeconds: null,
   };
 }
@@ -165,6 +187,51 @@ export function validateModelConfig(form: ModelConfigForm): ModelConfigErrors {
     errors.model = '请填写模型 ID。';
   }
 
+  const maxThinkingTokens = form.maxThinkingTokens;
+  if (
+    maxThinkingTokens !== null &&
+    (!Number.isInteger(maxThinkingTokens) ||
+      maxThinkingTokens < MAX_THINKING_TOKENS_MIN ||
+      maxThinkingTokens > MAX_THINKING_TOKENS_MAX)
+  ) {
+    errors.maxThinkingTokens = `最大思考 token 须为 ${MAX_THINKING_TOKENS_MIN}–${MAX_THINKING_TOKENS_MAX} 的整数。`;
+  }
+
+  const maxCompletionTokens = form.maxCompletionTokens;
+  if (
+    maxCompletionTokens !== null &&
+    (!Number.isInteger(maxCompletionTokens) ||
+      maxCompletionTokens < MAX_COMPLETION_TOKENS_MIN ||
+      maxCompletionTokens > MAX_COMPLETION_TOKENS_MAX)
+  ) {
+    errors.maxCompletionTokens = `最大输出 token 须为 ${MAX_COMPLETION_TOKENS_MIN}–${MAX_COMPLETION_TOKENS_MAX} 的整数。`;
+  }
+
+  // Cross-field checks only run on values that already passed their own range.
+  if (!errors.maxThinkingTokens && !errors.maxCompletionTokens) {
+    if (
+      maxThinkingTokens !== null &&
+      maxCompletionTokens !== null &&
+      maxCompletionTokens <= maxThinkingTokens
+    ) {
+      errors.maxCompletionTokens = '最大输出 token 必须大于最大思考 token。';
+    }
+
+    if (
+      !errors.maxCompletionTokens &&
+      form.provider === 'anthropic' &&
+      form.apiReasoning &&
+      maxCompletionTokens !== null
+    ) {
+      // Anthropic requires thinking.budget_tokens < max_tokens so the visible
+      // JSON answer still has room; the budget defaults to the tier value.
+      const budget = thinkingBudgetTokens(form.thinkingLevel, maxThinkingTokens);
+      if (budget !== null && maxCompletionTokens <= budget) {
+        errors.maxCompletionTokens = `最大输出 token 必须大于 Anthropic 思考预算（当前 ${budget}）。`;
+      }
+    }
+  }
+
   const timeout = form.requestTimeoutSeconds;
   if (
     timeout !== null &&
@@ -186,6 +253,9 @@ export function toModelSetup(form: ModelConfigForm): ModelSetup {
     thinkingLevel: form.thinkingLevel,
     apiReasoning: form.apiReasoning,
     apiKey: form.apiKey,
+    promptLevel: form.promptLevel,
+    maxThinkingTokens: form.maxThinkingTokens,
+    maxCompletionTokens: form.maxCompletionTokens,
     requestTimeoutSeconds: form.requestTimeoutSeconds,
   };
 }
