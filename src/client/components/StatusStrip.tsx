@@ -2,6 +2,7 @@ import type { ArenaState } from '../../shared/protocol';
 import { useNow } from '../hooks/useNow';
 import { SIDE_LABEL, SIDE_SEAL } from '../lib/chess';
 import { formatLatency, formatStopwatch } from '../lib/format';
+import { formatNotation } from '../lib/notation';
 
 /** Slim operational strip: turn, thinking clock, ply, attempts, last move. */
 export function StatusStrip({ state }: { state: ArenaState | null }) {
@@ -17,6 +18,7 @@ export function StatusStrip({ state }: { state: ArenaState | null }) {
 
   const lastMove =
     state && state.moves.length > 0 ? state.moves[state.moves.length - 1] : null;
+  const lastNotation = lastMove ? formatNotation(lastMove.notation, lastMove.side) : null;
 
   const lastError =
     state?.error?.message ??
@@ -59,10 +61,10 @@ export function StatusStrip({ state }: { state: ArenaState | null }) {
 
       <p
         className="live-strip__last"
-        title={lastMove ? `${lastMove.notation}（${lastMove.ucci}）` : undefined}
+        title={lastMove ? `${lastNotation}（${lastMove.ucci}）` : undefined}
       >
         {lastMove
-          ? `上一手 ${SIDE_LABEL[lastMove.side]} ${lastMove.notation} · ${formatLatency(
+          ? `上一手 ${SIDE_LABEL[lastMove.side]} ${lastNotation} · ${formatLatency(
               lastMove.latencyMs,
             )}`
           : '尚无落子'}

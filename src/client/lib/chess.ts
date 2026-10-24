@@ -6,6 +6,7 @@ import type {
   PieceView,
   Side,
 } from '../../shared/protocol';
+import { formatNotation } from './notation';
 
 export const SIDE_LABEL: Record<Side, string> = {
   red: '红方',
@@ -173,7 +174,7 @@ export function describeArena(state: BoardViewState): string {
   ];
 
   if (last) {
-    parts.push(`最后一手，${SIDE_LABEL[last.side]}${last.notation}`);
+    parts.push(`最后一手，${SIDE_LABEL[last.side]}${formatNotation(last.notation, last.side)}`);
   } else {
     parts.push('尚未落子');
   }

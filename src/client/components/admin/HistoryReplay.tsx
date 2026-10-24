@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { HistoryGameRecord, MoveView } from '../../../shared/protocol';
 import type { BoardViewState } from '../../lib/chess';
 import { SIDE_LABEL } from '../../lib/chess';
+import { formatNotation } from '../../lib/notation';
 import { Board } from '../Board';
 
 interface HistoryReplayProps {
@@ -166,7 +167,7 @@ export function HistoryReplay({
             <span className={`admin-replay__seal admin-replay__seal--${move.side}`} aria-hidden="true">
               {move.side === 'red' ? '红' : '黑'}
             </span>
-            第 {move.ply} 手 · {SIDE_LABEL[move.side]} {move.notation}
+            第 {move.ply} 手 · {SIDE_LABEL[move.side]} {formatNotation(move.notation, move.side)}
             <span className="admin-replay__ucci">{move.ucci}</span>
           </>
         ) : (

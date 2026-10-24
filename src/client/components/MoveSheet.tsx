@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { ArenaState, MoveView, Side } from '../../shared/protocol';
 import { formatLatency } from '../lib/format';
+import { formatNotation } from '../lib/notation';
 
 interface ScoreRow {
   no: number;
@@ -59,7 +60,7 @@ function MoveCell({ move, side, lastPly }: MoveCellProps) {
       className={`score-cell score-cell--${side}${move.ply === lastPly ? ' is-last' : ''}`}
       title={tooltip}
     >
-      <span className="score-notation">{move.notation}</span>
+      <span className="score-notation">{formatNotation(move.notation, move.side)}</span>
       <span className="score-ucci">{move.ucci}</span>
     </td>
   );

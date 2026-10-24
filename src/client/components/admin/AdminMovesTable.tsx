@@ -1,6 +1,7 @@
 import type { MoveView } from '../../../shared/protocol';
 import { formatLatency } from '../../lib/format';
 import { formatHistoryTokens } from '../../lib/history';
+import { formatNotation } from '../../lib/notation';
 
 interface AdminMovesTableProps {
   moves: MoveView[];
@@ -81,7 +82,9 @@ export function AdminMovesTable({
                   </span>
                 </td>
                 <td className="admin-moves__ucci">{move.ucci}</td>
-                <td className="admin-moves__notation">{move.notation}</td>
+                <td className="admin-moves__notation">
+                  {formatNotation(move.notation, move.side)}
+                </td>
                 <td className="admin-moves__latency">{formatLatency(move.latencyMs)}</td>
                 <td
                   className="admin-moves__tokens"

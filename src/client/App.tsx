@@ -40,6 +40,7 @@ import {
 import { applyProfileToGameForm } from './lib/profiles';
 import { PHASE_LABELS, turnHeadline } from './lib/format';
 import { SIDE_LABEL } from './lib/chess';
+import { formatNotation } from './lib/notation';
 
 const EMPTY_ERRORS: Record<Side, ModelConfigErrors> = { red: {}, black: {} };
 const EMPTY_SELECTIONS: Record<Side, string | null> = { red: null, black: null };
@@ -307,7 +308,7 @@ export default function App() {
 
     if (state.moves.length > 0) {
       const last = state.moves[state.moves.length - 1];
-      parts.push(`最后一手，${SIDE_LABEL[last.side]}${last.notation}`);
+      parts.push(`最后一手，${SIDE_LABEL[last.side]}${formatNotation(last.notation, last.side)}`);
     }
 
     if (state.checked) {
