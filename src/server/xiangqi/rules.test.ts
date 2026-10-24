@@ -101,7 +101,7 @@ describe('棋子走法规则', () => {
     expect(has(blackCrossed, 'e4e3')).toBe(true);
     expect(has(blackCrossed, 'e4e5')).toBe(false);
     expect(has(blackCrossed, 'e4d4')).toBe(true);
-    expect(blackCrossed.findLegalMove('e4d4')!.notation).toBe('卒5平4');
+    expect(blackCrossed.findLegalMove('e4d4')!.notation).toBe('卒五平四');
 
     // 黑卒 e6 未过河，不能横走。
     const blackHome = game('4k4/9/9/4p4/9/9/9/9/9/3K5 b - - 0 1');

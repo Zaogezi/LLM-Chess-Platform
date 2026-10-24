@@ -69,12 +69,12 @@ describe('prompt building', () => {
     ctx.moveNumber = 2;
     ctx.recentMoves = [
       { side: 'red', ucci: 'h2e2', notation: '炮二平五' },
-      { side: 'black', ucci: 'h9g7', notation: '马8进7' },
+      { side: 'black', ucci: 'h9g7', notation: '马八进七' },
     ];
     const prompt = buildUserPrompt(ctx);
     expect(prompt).toContain('红方正被将军，必须先解除将军');
     expect(prompt).toContain('红方 h2e2（炮二平五）');
-    expect(prompt).toContain('黑方 h9g7（马8进7）');
+    expect(prompt).toContain('黑方 h9g7（马八进七）');
   });
 
   it('builds a correction with the authoritative move list', () => {
