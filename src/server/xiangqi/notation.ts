@@ -2,9 +2,8 @@
  * Chinese move notation (中文记谱) for Xiangqi.
  *
  * Conventions implemented here:
- * - Red uses 帅仕相马车炮兵 and Black uses 将士象马车炮卒; both sides render
- *   every number with Chinese numerals 一..九 so the move list stays visually
- *   consistent (the traditional Black Arabic digits are intentionally not used).
+ * - Red uses 帅仕相马车炮兵 with Chinese numerals 一..九; Black uses
+ *   将士象马车炮卒 with Arabic digits 1..9.
  * - File numbers are counted from each side's own right:
  *     Red file number   = 9 - col
  *     Black file number = col + 1
@@ -60,12 +59,15 @@ function fileNumber(side: Side, col: number): number {
   return side === 'red' ? 9 - col : col + 1;
 }
 
-/** Render a file/rank count with Chinese numerals for both sides. */
-function renderNumber(value: number): string {
-  if (value < 1 || value > 9) {
-    throw new IllegalMoveError('illegal', `记谱数字 ${value} 超出范围`);
+/** Render a file/rank count with the side's numeral system. */
+function renderNumber(side: Side, value: number): string {
+  if (side === 'red') {
+    if (value < 1 || value > 9) {
+      throw new IllegalMoveError('illegal', `记谱数字 ${value} 超出范围`);
+    }
+    return CN_DIGITS[value];
   }
-  return CN_DIGITS[value];
+  return String(value);
 }
 
 /**
@@ -103,8 +105,8 @@ export function chineseNotation(board: Board, from: number, to: number): string 
   const toRow = rowOf(to);
   const toCol = colOf(to);
   const glyph = glyphFor(side, piece.type);
-  const originFile = renderNumber(fileNumber(side, fromCol));
-  const destFile = renderNumber(fileNumber(side, toCol));
+  const originFile = renderNumber(side, fileNumber(side, fromCol));
+  const destFile = renderNumber(side, fileNumber(side, toCol));
 
   let action: string;
   if (toRow === fromRow) {
@@ -115,7 +117,7 @@ export function chineseNotation(board: Board, from: number, to: number): string 
     const usesDestinationFile =
       piece.type === 'horse' || piece.type === 'elephant' || piece.type === 'advisor';
     const value = usesDestinationFile ? fileNumber(side, toCol) : Math.abs(toRow - fromRow);
-    action = `${direction}${renderNumber(value)}`;
+    action = `${direction}${renderNumber(side, value)}`;
   }
 
   const groups = sameTypeGroupsByFile(board, side, piece.type);

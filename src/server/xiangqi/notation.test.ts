@@ -20,10 +20,10 @@ describe('中文记谱', () => {
 
     const afterRed = XiangqiGame.initial();
     afterRed.apply('h2e2');
-    expect(afterRed.findLegalMove('b9c7')?.notation).toBe('马二进三');
-    expect(afterRed.findLegalMove('a9a8')?.notation).toBe('车一进一');
-    expect(afterRed.findLegalMove('e6e5')?.notation).toBe('卒五进一');
-    expect(afterRed.findLegalMove('e9e8')?.notation).toBe('将五进一');
+    expect(afterRed.findLegalMove('b9c7')?.notation).toBe('马2进3');
+    expect(afterRed.findLegalMove('a9a8')?.notation).toBe('车1进1');
+    expect(afterRed.findLegalMove('e6e5')?.notation).toBe('卒5进1');
+    expect(afterRed.findLegalMove('e9e8')?.notation).toBe('将5进1');
   });
 
   it('平：同行移动使用目标纵线号', () => {
@@ -64,10 +64,10 @@ describe('中文记谱', () => {
     expect(notationOf(fen, 'a3a4')).toBe('后兵进一');
   });
 
-  it('黑方同样使用前/后，数字统一为汉字数字', () => {
+  it('黑方同样使用前/后，数字为阿拉伯数字', () => {
     const fen = 'r3k4/9/9/r8/9/9/9/9/9/3K5 b - - 0 1';
-    expect(notationOf(fen, 'a6a5')).toBe('前车进一');
-    expect(notationOf(fen, 'a9a8')).toBe('后车进一');
+    expect(notationOf(fen, 'a6a5')).toBe('前车进1');
+    expect(notationOf(fen, 'a9a8')).toBe('后车进1');
   });
 
   it('超过三个同线棋子退化为坐标前缀，且不会产生歧义', () => {
@@ -89,6 +89,6 @@ describe('中文记谱', () => {
     expect(applied.notation).toBe('炮二平五');
     const black = XiangqiGame.initial();
     black.apply('h2e2');
-    expect(black.apply('b9c7').notation).toBe('马二进三');
+    expect(black.apply('b9c7').notation).toBe('马2进3');
   });
 });

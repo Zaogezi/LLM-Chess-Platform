@@ -64,7 +64,7 @@ describe('XiangqiGame 基础状态与走子', () => {
     expect(game.moveNumber).toBe(1);
 
     const reply = game.apply('b9c7');
-    expect(reply.notation).toBe('马二进三');
+    expect(reply.notation).toBe('马2进3');
     expect(game.sideToMove).toBe('red');
     expect(game.ply).toBe(2);
     expect(game.moveNumber).toBe(2);
