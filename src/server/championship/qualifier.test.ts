@@ -327,7 +327,7 @@ describe('Qualifier lifecycle', () => {
     expect(state.games).toEqual([]);
   });
 
-  it('exposes prompt level and token caps in the entrant views', () => {
+  it('exposes prompt level, token caps and requireReason in the entrant views', () => {
     const input = startInput();
     input.entrants[0] = {
       ...input.entrants[0]!,
@@ -336,6 +336,7 @@ describe('Qualifier lifecycle', () => {
         promptLevel: 'deep',
         maxThinkingTokens: 4096,
         maxCompletionTokens: 8192,
+        requireReason: false,
       },
     };
     const qualifier = createQualifier({
@@ -350,11 +351,13 @@ describe('Qualifier lifecycle', () => {
       promptLevel: 'deep',
       maxThinkingTokens: 4096,
       maxCompletionTokens: 8192,
+      requireReason: false,
     });
     expect(state.entrants[1]).toMatchObject({
       promptLevel: null,
       maxThinkingTokens: null,
       maxCompletionTokens: null,
+      requireReason: true,
     });
   });
 

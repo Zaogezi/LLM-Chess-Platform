@@ -97,6 +97,7 @@ describe('validateChampionshipStartRequest', () => {
           promptLevel: 'quick',
           maxThinkingTokens: 2048,
           maxCompletionTokens: 4096,
+          requireReason: true,
           requestTimeoutSeconds: 120,
         };
       },
@@ -111,6 +112,7 @@ describe('validateChampionshipStartRequest', () => {
       promptLevel: 'deep',
       maxThinkingTokens: 8192,
       maxCompletionTokens: 16384,
+      requireReason: false,
       requestTimeoutSeconds: 300,
     } as never;
     body.entrants[1] = { name: 'A2', seedPool: 2, profileId: 'saved-a' } as never;
@@ -127,6 +129,7 @@ describe('validateChampionshipStartRequest', () => {
       promptLevel: 'deep',
       maxThinkingTokens: 8192,
       maxCompletionTokens: 16384,
+      requireReason: false,
       requestTimeoutSeconds: 300,
     });
     expect(input.entrants[1]?.setup).toMatchObject({
@@ -135,6 +138,7 @@ describe('validateChampionshipStartRequest', () => {
       promptLevel: 'quick',
       maxThinkingTokens: 2048,
       maxCompletionTokens: 4096,
+      requireReason: true,
       requestTimeoutSeconds: 120,
     });
   });

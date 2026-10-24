@@ -108,6 +108,7 @@ export function toSetupDrafts(
     promptLevel: draft.promptLevel ?? null,
     maxThinkingTokens: draft.maxThinkingTokens ?? null,
     maxCompletionTokens: draft.maxCompletionTokens ?? null,
+    requireReason: draft.requireReason ?? true,
     requestTimeoutSeconds: draft.requestTimeoutSeconds ?? null,
     seedPool: draft.seedPool,
     qualifierGroup: draft.qualifierGroup,
@@ -137,6 +138,7 @@ export function fromSetupDrafts(
     promptLevel: draft.promptLevel ?? null,
     maxThinkingTokens: draft.maxThinkingTokens ?? null,
     maxCompletionTokens: draft.maxCompletionTokens ?? null,
+    requireReason: draft.requireReason ?? true,
     requestTimeoutSeconds: draft.requestTimeoutSeconds ?? null,
     seedPool: draft.seedPool,
     qualifierGroup: draft.qualifierGroup,
@@ -169,6 +171,13 @@ function isSetupDraft(value: unknown): value is ChampionshipSetupDraft {
   if (!isOptionalPromptLevel(value.promptLevel)) return false;
   if (!isOptionalTokenCap(value.maxThinkingTokens)) return false;
   if (!isOptionalTokenCap(value.maxCompletionTokens)) return false;
+  if (
+    value.requireReason !== undefined &&
+    value.requireReason !== null &&
+    typeof value.requireReason !== 'boolean'
+  ) {
+    return false;
+  }
   if (
     value.requestTimeoutSeconds !== undefined &&
     value.requestTimeoutSeconds !== null &&

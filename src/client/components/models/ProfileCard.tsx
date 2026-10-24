@@ -62,6 +62,12 @@ export function ProfileCard({
                   <span>{tokenLimitText}</span>
                 </>
               ) : null}
+              {profile.requireReason === false ? (
+                <>
+                  <i aria-hidden="true">·</i>
+                  <span>无需理由</span>
+                </>
+              ) : null}
               {profile.requestTimeoutSeconds ? (
                 <>
                   <i aria-hidden="true">·</i>

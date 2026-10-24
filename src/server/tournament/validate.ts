@@ -14,6 +14,7 @@ import {
   validateModelSetup,
   validatePromptLevel,
   validateRequestTimeoutSeconds,
+  validateRequireReason,
   validateThinkingLevel,
   validateTokenCaps,
 } from '../providers/validate';
@@ -119,6 +120,10 @@ export function validateTournamentStartRequest(
         item.requestTimeoutSeconds === undefined
           ? saved.requestTimeoutSeconds ?? null
           : validateRequestTimeoutSeconds(item.requestTimeoutSeconds);
+      const requireReason =
+        item.requireReason === undefined
+          ? saved.requireReason !== false
+          : validateRequireReason(item.requireReason);
       validateTokenCaps(
         saved.provider,
         thinkingLevel,
@@ -130,6 +135,7 @@ export function validateTournamentStartRequest(
         ...saved,
         thinkingLevel,
         apiReasoning,
+        requireReason,
         ...(promptLevel !== null ? { promptLevel } : {}),
         ...(maxThinkingTokens !== null ? { maxThinkingTokens } : {}),
         ...(maxCompletionTokens !== null ? { maxCompletionTokens } : {}),

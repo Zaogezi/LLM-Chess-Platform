@@ -270,6 +270,7 @@ export class Tournament {
         promptLevel: setup.promptLevel ?? null,
         maxThinkingTokens: setup.maxThinkingTokens ?? null,
         maxCompletionTokens: setup.maxCompletionTokens ?? null,
+        requireReason: setup.requireReason !== false,
         requestTimeoutSeconds: setup.requestTimeoutSeconds ?? null,
         keyConfigured: Boolean(setup.apiKey),
       };

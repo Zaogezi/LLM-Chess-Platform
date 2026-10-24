@@ -150,6 +150,27 @@ describe('model profile form helpers', () => {
     expect(validateProfileForm(form).maxCompletionTokens).toBeUndefined();
   });
 
+  it('carries the reason-output switch through forms and requests', () => {
+    const noReasonProfile: ModelProfileView = { ...profile, requireReason: false };
+    const form = profileToForm(noReasonProfile);
+    expect(form.requireReason).toBe(false);
+    expect(toProfileCreateRequest(form).requireReason).toBe(false);
+    expect(toProfileUpdateRequest(form, true).requireReason).toBe(false);
+    expect(applyProfileToGameForm(createProfileForm(), noReasonProfile).requireReason).toBe(
+      false,
+    );
+
+    // Old profiles without the field keep the historical require-reason default.
+    const legacyForm = profileToForm(profile);
+    expect(legacyForm.requireReason).toBe(true);
+    expect(toProfileCreateRequest(legacyForm).requireReason).toBe(true);
+
+    // Presets start from the default, and the form defaults to checked.
+    expect(createProfileForm().requireReason).toBe(true);
+    const presetForm = { ...createProfileForm(), requireReason: false };
+    expect(applyProfileFormPreset(presetForm, 'anthropic').requireReason).toBe(true);
+  });
+
   it('applies A profile to game forms without carrying a browser key', () => {
     const form = createProfileForm();
     form.apiKey = 'temporary-browser-key';

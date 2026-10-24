@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ModelProfileView } from '../../shared/protocol';
 import {
+  applyPresetToDraft,
   applyProfileToDraft,
   createTournamentDraft,
   toTournamentStartRequest,
@@ -51,6 +52,7 @@ describe('tournament saved-profile integration', () => {
       profileId: 'saved-1',
       thinkingLevel: 'deep',
       apiReasoning: true,
+      requireReason: true,
     });
     expect(request.models[1]).toMatchObject({
       name: '存档模型 2',
@@ -126,6 +128,32 @@ describe('tournament saved-profile integration', () => {
     expect(defaultRequest.models[0]).not.toHaveProperty('promptLevel');
     expect(defaultRequest.models[0]).not.toHaveProperty('maxThinkingTokens');
     expect(defaultRequest.models[0]).not.toHaveProperty('maxCompletionTokens');
+  });
+
+  it('carries the reason-output switch through drafts and requests', () => {
+    // A saved profile that disabled reasons fills the draft and is sent as false.
+    const noReasonProfile: ModelProfileView = { ...profile, requireReason: false };
+    const draft = applyProfileToDraft(
+      createTournamentDraft('deepseek', 'DeepSeek'),
+      noReasonProfile,
+      [],
+    );
+    expect(draft.requireReason).toBe(false);
+    expect(toTournamentStartRequest([draft], 1).models[0]).toMatchObject({
+      profileId: 'saved-1',
+      requireReason: false,
+    });
+
+    // The default is always sent explicitly so a legacy profile is overridden.
+    const inline = createTournamentDraft('openai', 'OpenAI');
+    expect(inline.requireReason).toBe(true);
+    expect(toTournamentStartRequest([inline], 1).models[0]).toMatchObject({
+      requireReason: true,
+    });
+
+    // Switching preset resets the switch to the historical default.
+    const toggled = { ...inline, requireReason: false };
+    expect(applyPresetToDraft(toggled, 'anthropic').requireReason).toBe(true);
   });
 
   it('validates token caps per entrant', () => {

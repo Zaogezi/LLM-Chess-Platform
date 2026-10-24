@@ -10,6 +10,7 @@ import { EyeIcon, EyeOffIcon, Spinner } from '../Icons';
 import { ProfileTestResult } from './ProfileTestResult';
 import { PromptLevelField } from '../PromptLevelField';
 import { ReasoningTimeoutField } from '../ReasoningTimeoutField';
+import { RequireReasonField } from '../RequireReasonField';
 import { ThinkingLevelField } from '../ThinkingLevelField';
 import { TokenLimitsField } from '../TokenLimitsField';
 
@@ -198,6 +199,12 @@ export function ProfileEditor({
           value={form.promptLevel}
           thinkingLevel={form.thinkingLevel}
           onChange={(level) => onChange({ promptLevel: level })}
+        />
+
+        <RequireReasonField
+          id="profile-requireReason"
+          value={form.requireReason}
+          onChange={(requireReason) => onChange({ requireReason })}
         />
 
         <TokenLimitsField

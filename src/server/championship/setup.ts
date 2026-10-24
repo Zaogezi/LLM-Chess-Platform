@@ -192,6 +192,9 @@ function parseDraft(value: unknown): ChampionshipSetupDraft | null {
   ) {
     return null;
   }
+  if (input.requireReason !== undefined && typeof input.requireReason !== 'boolean') {
+    return null;
+  }
   if (!isSeedPool(input.seedPool)) return null;
   if (input.qualifierGroup !== null && !isQualifierGroup(input.qualifierGroup)) {
     return null;
@@ -213,6 +216,8 @@ function parseDraft(value: unknown): ChampionshipSetupDraft | null {
       typeof input.maxThinkingTokens === 'number' ? input.maxThinkingTokens : null,
     maxCompletionTokens:
       typeof input.maxCompletionTokens === 'number' ? input.maxCompletionTokens : null,
+    // Missing in old version-1 files: the historical behaviour requires a reason.
+    requireReason: input.requireReason !== false,
     apiKey: input.apiKey,
     requestTimeoutSeconds:
       typeof input.requestTimeoutSeconds === 'number'

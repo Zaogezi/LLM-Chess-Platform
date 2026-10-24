@@ -118,6 +118,7 @@ export default function ModelLibraryApp() {
             promptLevel: null,
             maxThinkingTokens: null,
             maxCompletionTokens: null,
+            requireReason: true,
           }
         : { ...previous, ...patch };
     });

@@ -1118,13 +1118,15 @@ export function buildChampionshipSeriesPreview(): ChampionshipSeriesView[] {
 }
 
 /**
- * Optional per-entrant settings shared by both request shapes. Null keeps the
- * "follow / no limit" defaults of the saved profile and is therefore omitted.
+ * Per-entrant settings shared by both request shapes. Null keeps the
+ * "follow / no limit" defaults of the saved profile and is therefore omitted;
+ * `requireReason` is always sent because true is a meaningful override.
  */
 function championshipDraftOverrides(draft: ChampionshipDraft): {
   promptLevel?: string;
   maxThinkingTokens?: number;
   maxCompletionTokens?: number;
+  requireReason: boolean;
   requestTimeoutSeconds?: number;
 } {
   return {
@@ -1135,6 +1137,7 @@ function championshipDraftOverrides(draft: ChampionshipDraft): {
     ...(draft.maxCompletionTokens != null
       ? { maxCompletionTokens: draft.maxCompletionTokens }
       : {}),
+    requireReason: draft.requireReason ?? true,
     ...(draft.requestTimeoutSeconds != null
       ? { requestTimeoutSeconds: draft.requestTimeoutSeconds }
       : {}),

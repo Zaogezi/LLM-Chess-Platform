@@ -137,6 +137,24 @@ describe('validateModelSetup', () => {
     ).toThrow(/必须大于最大思考 token/);
   });
 
+  it('treats the reason requirement as an optional boolean defaulting to true', () => {
+    const base = {
+      provider: 'openai',
+      baseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-chat',
+    };
+    expect(validateModelSetup(base, 'red').requireReason).toBeUndefined();
+    expect(
+      validateModelSetup({ ...base, requireReason: false }, 'red').requireReason,
+    ).toBe(false);
+    expect(
+      validateModelSetup({ ...base, requireReason: true }, 'red').requireReason,
+    ).toBeUndefined();
+    expect(() =>
+      validateModelSetup({ ...base, requireReason: 'no' }, 'red'),
+    ).toThrow(/要求输出理由/);
+  });
+
   it('requires the Anthropic completion cap to exceed the thinking budget', () => {
     const base = {
       provider: 'anthropic',

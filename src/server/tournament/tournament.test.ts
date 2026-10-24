@@ -111,7 +111,7 @@ describe('Tournament', () => {
     expect(JSON.stringify(state)).not.toContain('secret-');
   });
 
-  it('exposes prompt level and token caps in the model views', () => {
+  it('exposes prompt level, token caps and requireReason in the model views', () => {
     const provider: ModelProvider = {
       provider: 'openai',
       async complete() {
@@ -129,6 +129,7 @@ describe('Tournament', () => {
           promptLevel: 'deep',
           maxThinkingTokens: 4096,
           maxCompletionTokens: 8192,
+          requireReason: false,
         },
         entrant('Beta'),
       ],
@@ -142,11 +143,13 @@ describe('Tournament', () => {
       promptLevel: 'deep',
       maxThinkingTokens: 4096,
       maxCompletionTokens: 8192,
+      requireReason: false,
     });
     expect(state.models[1]).toMatchObject({
       promptLevel: null,
       maxThinkingTokens: null,
       maxCompletionTokens: null,
+      requireReason: true,
     });
   });
 

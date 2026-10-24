@@ -474,6 +474,18 @@ describe('championship plan and start request', () => {
     expect(seriesSeedPlaceholder(series[6]!, 'right')).toBe('半决赛 2 胜者');
   });
 
+  it('sends the reason-output switch for every entrant', () => {
+    const drafts = createDefaultChampionshipDrafts();
+    drafts[0] = { ...drafts[0]!, requireReason: false };
+    const fixture = drawDrafts(drafts);
+    const draw = createChampionshipDraw(fixture, deterministicRandom(6));
+    const request = toChampionshipStartRequest(fixture, draw);
+
+    expect(request.entrants[0]).toMatchObject({ requireReason: false });
+    // The default is sent explicitly so it can override a saved-profile false.
+    expect(request.entrants[1]).toMatchObject({ requireReason: true });
+  });
+
   it('carries prompt level and token caps into the start request', () => {
     const drafts = createDefaultChampionshipDrafts();
     drafts[0] = {

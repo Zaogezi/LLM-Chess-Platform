@@ -175,7 +175,7 @@ function seriesById(state: ChampionshipState, id: string) {
 }
 
 describe('Championship', () => {
-  it('exposes prompt level and token caps in the entrant views', () => {
+  it('exposes prompt level, token caps and requireReason in the entrant views', () => {
     const input = startInput();
     input.entrants[0] = {
       ...input.entrants[0]!,
@@ -184,6 +184,7 @@ describe('Championship', () => {
         promptLevel: 'deep',
         maxThinkingTokens: 4096,
         maxCompletionTokens: 8192,
+        requireReason: false,
       },
     };
     const championship = createChampionship({
@@ -198,11 +199,13 @@ describe('Championship', () => {
       promptLevel: 'deep',
       maxThinkingTokens: 4096,
       maxCompletionTokens: 8192,
+      requireReason: false,
     });
     expect(state.entrants[1]).toMatchObject({
       promptLevel: null,
       maxThinkingTokens: null,
       maxCompletionTokens: null,
+      requireReason: true,
     });
   });
 

@@ -130,6 +130,7 @@ export default function App() {
             promptLevel: null,
             maxThinkingTokens: null,
             maxCompletionTokens: null,
+            requireReason: true,
           }
         : { ...current, ...patch };
       return { ...previous, [side]: next };
@@ -176,6 +177,10 @@ export default function App() {
         model: preset.model,
         thinkingLevel: DEFAULT_THINKING_LEVEL,
         thinkingOptions: [...DEFAULT_THINKING_LEVELS],
+        promptLevel: null,
+        maxThinkingTokens: null,
+        maxCompletionTokens: null,
+        requireReason: true,
       },
     }));
     setFormErrors((previous) => ({ ...previous, [side]: {} }));
@@ -207,6 +212,7 @@ export default function App() {
           promptLevel: forms[side].promptLevel,
           maxThinkingTokens: forms[side].maxThinkingTokens,
           maxCompletionTokens: forms[side].maxCompletionTokens,
+          requireReason: forms[side].requireReason,
           requestTimeoutSeconds: forms[side].requestTimeoutSeconds,
         };
         continue;

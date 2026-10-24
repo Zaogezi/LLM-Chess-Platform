@@ -235,6 +235,11 @@ export interface ModelSetup {
    */
   maxCompletionTokens?: number | null;
   /**
+   * When false, the prompt only asks for a move and no longer requires the
+   * JSON `reason` field. Defaults to true (the historical behaviour).
+   */
+  requireReason?: boolean;
+  /**
    * Optional override for the single-step wait limit in seconds. Omitted/null
    * falls back to the thinking-tier default (60 / 120 / 240 s).
    */
@@ -258,6 +263,7 @@ export interface ModelProfileSelection {
   promptLevel?: ThinkingLevel | null;
   maxThinkingTokens?: number | null;
   maxCompletionTokens?: number | null;
+  requireReason?: boolean;
   /** Per-game wait-limit override; omitted/null uses the saved profile value. */
   requestTimeoutSeconds?: number | null;
 }
@@ -301,6 +307,8 @@ export interface ModelView {
   maxThinkingTokens?: number | null;
   /** Hard completion-token cap, or null/absent when no cap is sent. */
   maxCompletionTokens?: number | null;
+  /** Whether the prompt requires the JSON `reason` field. */
+  requireReason?: boolean;
   /** Independent wait override in seconds; null/absent follows the thinking tier. */
   requestTimeoutSeconds?: number | null;
   /** Whether this match sends provider-native reasoning parameters. */
@@ -384,6 +392,8 @@ export interface ModelProfileView {
   maxThinkingTokens?: number | null;
   /** Hard completion-token cap; null/absent sends no cap. */
   maxCompletionTokens?: number | null;
+  /** Whether the prompt requires the JSON `reason` field (default true). */
+  requireReason?: boolean;
   /** Independent single-step wait override in seconds; null/absent follows the tier. */
   requestTimeoutSeconds?: number | null;
   keyConfigured: boolean;
@@ -409,6 +419,7 @@ export interface ModelProfileCreateRequest {
   promptLevel?: ThinkingLevel | null;
   maxThinkingTokens?: number | null;
   maxCompletionTokens?: number | null;
+  requireReason?: boolean;
   /** Independent wait override in seconds; omit or null to follow the tier. */
   requestTimeoutSeconds?: number | null;
   apiKey?: string;
@@ -540,6 +551,8 @@ export interface TournamentModelView {
   maxThinkingTokens?: number | null;
   /** Hard completion-token cap; null/absent sends no cap. */
   maxCompletionTokens?: number | null;
+  /** Whether the prompt requires the JSON `reason` field. */
+  requireReason?: boolean;
   /** Independent wait override in seconds; null/absent follows the thinking tier. */
   requestTimeoutSeconds?: number | null;
   keyConfigured: boolean;
@@ -778,6 +791,8 @@ export interface QualifierEntrantView {
   maxThinkingTokens?: number | null;
   /** Hard completion-token cap; null/absent sends no cap. */
   maxCompletionTokens?: number | null;
+  /** Whether the prompt requires the JSON `reason` field. */
+  requireReason?: boolean;
   /** Independent wait override in seconds; null/absent follows the thinking tier. */
   requestTimeoutSeconds?: number | null;
   keyConfigured: boolean;
@@ -977,6 +992,8 @@ export interface ChampionshipSetupDraft {
   maxThinkingTokens?: number | null;
   /** Hard completion-token cap; null/absent sends no cap. */
   maxCompletionTokens?: number | null;
+  /** Whether the prompt requires the JSON `reason` field (default true). */
+  requireReason?: boolean;
   apiKey: string;
   /** Independent wait override in seconds; null/absent follows the thinking tier. */
   requestTimeoutSeconds?: number | null;

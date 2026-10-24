@@ -399,6 +399,35 @@ describe('Arena lifecycle and model turns', () => {
     expect(finished.result?.text).toContain('token 上限');
   });
 
+  it('can stop requiring the JSON reason field', async () => {
+    const provider: ModelProvider = {
+      provider: 'openai',
+      async complete(_setup, request) {
+        return reply(firstLegalFromPrompt(request));
+      },
+    };
+    const calls: CompletionRequest[] = [];
+    const capturing: ModelProvider = {
+      provider: 'openai',
+      async complete(modelSetup, request, signal) {
+        calls.push(request);
+        return provider.complete(modelSetup, request, signal);
+      },
+    };
+    const arena = createArena(capturing);
+    arena.start({
+      red: { ...setup('red-model'), requireReason: false },
+      black: setup('black-model'),
+      settings: { moveDelayMs: 0, maxAttempts: 3 },
+    });
+
+    const state = await waitFor(arena, (current) => current.moves.length >= 1);
+    expect(calls[0]?.system).not.toContain('"reason"');
+    expect(calls[0]?.messages[0]?.content).not.toContain('"reason"');
+    expect(state.models.red?.requireReason).toBe(false);
+    expect(state.models.black?.requireReason).toBe(true);
+  });
+
   it('keeps prompt intensity independent from the API thinking level', async () => {
     const provider: ModelProvider = {
       provider: 'openai',

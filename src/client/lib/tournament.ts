@@ -50,6 +50,8 @@ export interface TournamentModelDraft {
   maxThinkingTokens: number | null;
   /** Hard total-output cap; null sends no cap. */
   maxCompletionTokens: number | null;
+  /** When false the prompt only asks for a move and omits the reason field. */
+  requireReason: boolean;
   /** Independent per-step wait override; null follows the thinking tier. */
   requestTimeoutSeconds: number | null;
 }
@@ -160,6 +162,7 @@ export function createTournamentDraft(
     promptLevel: config.promptLevel,
     maxThinkingTokens: config.maxThinkingTokens,
     maxCompletionTokens: config.maxCompletionTokens,
+    requireReason: config.requireReason,
     requestTimeoutSeconds: config.requestTimeoutSeconds,
   };
 }
@@ -204,6 +207,7 @@ export function applyPresetToDraft(
     promptLevel: null,
     maxThinkingTokens: null,
     maxCompletionTokens: null,
+    requireReason: true,
     requestTimeoutSeconds: null,
     name: shouldAdoptLabel ? next.label : draft.name,
   };
@@ -238,6 +242,7 @@ export function applyProfileToDraft(
     promptLevel: profile.promptLevel ?? null,
     maxThinkingTokens: profile.maxThinkingTokens ?? null,
     maxCompletionTokens: profile.maxCompletionTokens ?? null,
+    requireReason: profile.requireReason ?? true,
     requestTimeoutSeconds: profile.requestTimeoutSeconds ?? null,
     apiKey: '',
     showKey: false,
@@ -337,14 +342,16 @@ export function validateTournamentDrafts(
 }
 
 /**
- * Optional per-game overrides shared by every request shape. Fields left at
- * their "follow / no limit" default (null) are omitted, exactly like the
- * existing independent timeout override.
+ * Per-game overrides shared by every request shape. Nullable fields left at
+ * their "follow / no limit" default are omitted, exactly like the existing
+ * independent timeout override. The boolean is always sent because true is a
+ * meaningful override of a saved profile that disabled the reason output.
  */
 function draftOptionalOverrides(draft: TournamentModelDraft): {
   promptLevel?: ThinkingLevel;
   maxThinkingTokens?: number;
   maxCompletionTokens?: number;
+  requireReason: boolean;
   requestTimeoutSeconds?: number;
 } {
   return {
@@ -355,6 +362,7 @@ function draftOptionalOverrides(draft: TournamentModelDraft): {
     ...(draft.maxCompletionTokens != null
       ? { maxCompletionTokens: draft.maxCompletionTokens }
       : {}),
+    requireReason: draft.requireReason ?? true,
     ...(draft.requestTimeoutSeconds != null
       ? { requestTimeoutSeconds: draft.requestTimeoutSeconds }
       : {}),

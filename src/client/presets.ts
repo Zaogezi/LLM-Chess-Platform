@@ -117,6 +117,8 @@ export interface ModelConfigForm {
   maxThinkingTokens: number | null;
   /** Hard total-output cap; null sends no cap. */
   maxCompletionTokens: number | null;
+  /** When false the prompt only asks for a move, saving the reason tokens. */
+  requireReason: boolean;
   /** Independent per-step wait override; null follows the thinking tier. */
   requestTimeoutSeconds: number | null;
 }
@@ -154,6 +156,7 @@ export function createModelConfig(presetKey: PresetKey): ModelConfigForm {
     promptLevel: null,
     maxThinkingTokens: null,
     maxCompletionTokens: null,
+    requireReason: true,
     requestTimeoutSeconds: null,
   };
 }
@@ -256,6 +259,7 @@ export function toModelSetup(form: ModelConfigForm): ModelSetup {
     promptLevel: form.promptLevel,
     maxThinkingTokens: form.maxThinkingTokens,
     maxCompletionTokens: form.maxCompletionTokens,
+    requireReason: form.requireReason,
     requestTimeoutSeconds: form.requestTimeoutSeconds,
   };
 }

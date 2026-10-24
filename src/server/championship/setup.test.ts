@@ -254,6 +254,18 @@ describe('ChampionshipSetupStore parsing', () => {
     expect(saved?.drafts[0]?.maxCompletionTokens ?? null).toBeNull();
   });
 
+  it('round-trips requireReason and defaults untouched seats to true', () => {
+    const filePath = temporaryFile();
+    const store = new ChampionshipSetupStore({ filePath });
+    const drafts = setupDrafts();
+    drafts[0] = { ...drafts[0]!, requireReason: false };
+    expect(store.save(saveRequest({ drafts }))).not.toBeNull();
+
+    const snapshot = new ChampionshipSetupStore({ filePath }).load();
+    expect(snapshot?.drafts[0]?.requireReason).toBe(false);
+    expect(snapshot?.drafts[1]?.requireReason).toBe(true);
+  });
+
   it.each<[string, Partial<ChampionshipSetupDraft>]>([
     ['an empty prompt level', { promptLevel: '' }],
     ['a blank prompt level', { promptLevel: '   ' }],
@@ -267,6 +279,7 @@ describe('ChampionshipSetupStore parsing', () => {
     ['a completion cap below 256', { maxCompletionTokens: 255 }],
     ['a completion cap above 131072', { maxCompletionTokens: 131073 }],
     ['a non-numeric completion cap', { maxCompletionTokens: '8192' as never }],
+    ['a non-boolean requireReason', { requireReason: 'no' as never }],
   ])('rejects a draft with %s', (_label, patch) => {
     const drafts = setupDrafts();
     drafts[0] = { ...drafts[0]!, ...patch };
@@ -292,6 +305,8 @@ describe('ChampionshipSetupStore parsing', () => {
     expect(snapshot?.drafts[0]?.promptLevel ?? null).toBeNull();
     expect(snapshot?.drafts[0]?.maxThinkingTokens ?? null).toBeNull();
     expect(snapshot?.drafts[0]?.maxCompletionTokens ?? null).toBeNull();
+    // Old files predate requireReason: the historical behaviour (true) applies.
+    expect(snapshot?.drafts[0]?.requireReason).toBe(true);
     expect(snapshot?.draw).toBeNull();
     expect(snapshot?.concurrency).toBe(2);
   });

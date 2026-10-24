@@ -52,6 +52,11 @@ function isOptionalTokenCap(value: unknown): boolean {
   );
 }
 
+/** Absent means the historical "require reason" behaviour. */
+function isOptionalBoolean(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === 'boolean';
+}
+
 function isArenaState(value: unknown): value is ArenaState {
   return (
     isRecord(value) &&
@@ -302,6 +307,7 @@ function isModelProfileView(value: unknown): value is ModelProfileView {
     isOptionalPromptLevel(value.promptLevel) &&
     isOptionalTokenCap(value.maxThinkingTokens) &&
     isOptionalTokenCap(value.maxCompletionTokens) &&
+    isOptionalBoolean(value.requireReason) &&
     (value.requestTimeoutSeconds === undefined ||
       value.requestTimeoutSeconds === null ||
       typeof value.requestTimeoutSeconds === 'number') &&

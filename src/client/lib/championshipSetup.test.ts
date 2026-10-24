@@ -152,14 +152,33 @@ describe('championship setup draft conversion', () => {
     });
   });
 
+  it('round-trips the reason-output switch', () => {
+    const drafts = defaultDrafts();
+    expect(drafts[0]!.requireReason).toBe(true);
+    drafts[0] = { ...drafts[0]!, requireReason: false };
+
+    const setupDrafts = toSetupDrafts(drafts);
+    expect(setupDrafts[0]!.requireReason).toBe(false);
+    expect(fromSetupDrafts(setupDrafts)[0]!.requireReason).toBe(false);
+  });
+
   it('accepts older snapshots that omit the new fields', () => {
     const legacy = setupDraftsFromDefault() as unknown as Array<Record<string, unknown>>;
     for (const draft of legacy) {
       delete draft.promptLevel;
       delete draft.maxThinkingTokens;
       delete draft.maxCompletionTokens;
+      delete draft.requireReason;
     }
     expect(isValidSetupSnapshot(snapshotPayload({ drafts: legacy }))).toBe(true);
+    const restored = fromSetupDrafts(legacy as unknown as ChampionshipSetupDraft[]);
+    expect(restored[0]!.requireReason).toBe(true);
+  });
+
+  it('rejects a non-boolean reason-output value in a snapshot', () => {
+    const drafts = setupDraftsFromDefault();
+    drafts[0] = { ...drafts[0]!, requireReason: 'no' as never };
+    expect(isValidSetupSnapshot(snapshotPayload({ drafts }))).toBe(false);
   });
 
   it('rejects malformed token caps in a snapshot', () => {

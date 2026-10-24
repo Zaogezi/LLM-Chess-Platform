@@ -7,6 +7,17 @@ import {
 } from '../../shared/protocol';
 import { createModelConfig, toModelSetup, validateModelConfig } from '../presets';
 
+describe('reason output setting', () => {
+  it('defaults to requiring the reason and passes both booleans through', () => {
+    const form = createModelConfig('deepseek');
+    expect(form.requireReason).toBe(true);
+    expect(toModelSetup(form).requireReason).toBe(true);
+
+    form.requireReason = false;
+    expect(toModelSetup(form).requireReason).toBe(false);
+  });
+});
+
 describe('prompt level and token caps', () => {
   it('defaults to follow / no limit and keeps them in the setup payload', () => {
     const form = createModelConfig('deepseek');

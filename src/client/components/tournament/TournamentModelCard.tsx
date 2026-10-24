@@ -11,6 +11,7 @@ import type {
 import { TOURNAMENT_MODEL_SEALS } from '../../lib/tournament';
 import { EyeIcon, EyeOffIcon } from '../Icons';
 import { PromptLevelField } from '../PromptLevelField';
+import { RequireReasonField } from '../RequireReasonField';
 import { ThinkingLevelField } from '../ThinkingLevelField';
 import { ReasoningTimeoutField } from '../ReasoningTimeoutField';
 import { TokenLimitsField } from '../TokenLimitsField';
@@ -112,7 +113,7 @@ export function TournamentModelCard({
               {draft.model.trim() || '模型待定'}
             </span>
           </p>
-          {(explicitPromptLevel || tokenLimitText) && (
+          {(explicitPromptLevel || tokenLimitText || draft.requireReason === false) && (
             <div className="tourney-model-card__flags">
               {explicitPromptLevel && (
                 <span className="thinking-badge">
@@ -121,6 +122,9 @@ export function TournamentModelCard({
               )}
               {tokenLimitText && (
                 <span className="thinking-badge">{tokenLimitText}</span>
+              )}
+              {draft.requireReason === false && (
+                <span className="thinking-badge">无需理由</span>
               )}
             </div>
           )}
@@ -344,6 +348,13 @@ export function TournamentModelCard({
               thinkingLevel={draft.thinkingLevel}
               disabled={disabled}
               onChange={(level) => onChange({ promptLevel: level })}
+            />
+
+            <RequireReasonField
+              id={`${draft.id}-requireReason`}
+              value={draft.requireReason}
+              disabled={disabled}
+              onChange={(requireReason) => onChange({ requireReason })}
             />
 
             <TokenLimitsField

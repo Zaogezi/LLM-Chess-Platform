@@ -77,8 +77,18 @@ function specFor(level: ThinkingLevel): ThinkingSpec {
 export function buildSystemPrompt(
   side: Side,
   promptLevel: ThinkingLevel = DEFAULT_THINKING_LEVEL,
+  requireReason = true,
 ): string {
   const spec = specFor(promptLevel);
+  const outputContract = requireReason
+    ? [
+        `{"move":"<合法着法列表中的 UCCI>","reason":"<不超过${spec.reasonLimit}字的战略理由>"}`,
+        'move 必须是 UCCI 坐标；reason 使用简洁中文，不要换行。',
+      ]
+    : [
+        '{"move":"<合法着法列表中的 UCCI>"}',
+        'move 必须是 UCCI 坐标；不需要输出 reason 字段。',
+      ];
   return [
     '你是一位中国象棋顶尖棋手，正在参加一场双模型对弈。',
     `本局你执${sideName(side)}。每一步都必须从系统提供的当前局面与合法着法中选择。`,
@@ -94,8 +104,7 @@ export function buildSystemPrompt(
     '',
     '【输出格式】',
     '只输出一个 JSON 对象，不要 Markdown 代码块，不要任何额外文字：',
-    `{"move":"<合法着法列表中的 UCCI>","reason":"<不超过${spec.reasonLimit}字的战略理由>"}`,
-    'move 必须是 UCCI 坐标；reason 使用简洁中文，不要换行。',
+    ...outputContract,
     START_CORRECTION_HINT,
   ].join('\n');
 }
@@ -142,8 +151,12 @@ function formatRecentMoves(context: PromptContext, limit: number): string {
 export function buildUserPrompt(
   context: PromptContext,
   promptLevel: ThinkingLevel = DEFAULT_THINKING_LEVEL,
+  requireReason = true,
 ): string {
   const spec = specFor(promptLevel);
+  const outputContract = requireReason
+    ? `{"move":"<UCCI>","reason":"<不超过${spec.reasonLimit}字的战略理由>"}`
+    : '{"move":"<UCCI>"}';
   return [
     `现在轮到${sideName(context.side)}走棋，第 ${context.moveNumber} 回合。`,
     `本回合提示词强度：${spec.label}。`,
@@ -160,7 +173,7 @@ export function buildUserPrompt(
     `合法着法（共 ${context.legalMoves.length} 个，只能选其中一个）：`,
     formatLegalMoves(context),
     '',
-    `请为${sideName(context.side)}落子。只输出 JSON：{"move":"<UCCI>","reason":"<不超过${spec.reasonLimit}字的战略理由>"}。`,
+    `请为${sideName(context.side)}落子。只输出 JSON：${outputContract}。`,
   ].join('\n');
 }
 
@@ -168,17 +181,21 @@ export function buildCorrection(
   problem: string,
   legalMoves: PromptMove[],
   promptLevel: ThinkingLevel = DEFAULT_THINKING_LEVEL,
+  requireReason = true,
 ): string {
   const spec = specFor(promptLevel);
   const list = legalMoves.length
     ? legalMoves.map((move) => move.ucci).join('、')
     : '（无）';
+  const outputContract = requireReason
+    ? `{"move":"<合法着法列表中的 UCCI>","reason":"<不超过${spec.reasonLimit}字的理由>"}`
+    : '{"move":"<合法着法列表中的 UCCI>"}';
   return [
     `你上一次的输出无效：${problem}`,
     '棋盘没有变化，仍然必须从合法着法中选择。',
     `合法着法：${list}`,
     '请重新只输出一个严格 JSON 对象，格式：',
-    `{"move":"<合法着法列表中的 UCCI>","reason":"<不超过${spec.reasonLimit}字的理由>"}`,
+    outputContract,
     '不要包含 Markdown、代码围栏或任何解释文字。',
   ].join('\n');
 }

@@ -50,6 +50,8 @@ interface StoredModelProfile {
   maxThinkingTokens: number | null;
   /** Hard completion-token cap; null sends no cap. */
   maxCompletionTokens: number | null;
+  /** Whether the prompt requires the JSON `reason` field. */
+  requireReason: boolean;
   /** Independent single-step wait override in seconds; null follows the tier. */
   requestTimeoutSeconds: number | null;
   createdAt: number;
@@ -72,6 +74,7 @@ export interface ValidatedProfileFields {
   promptLevel?: ThinkingLevel | null;
   maxThinkingTokens?: number | null;
   maxCompletionTokens?: number | null;
+  requireReason?: boolean;
   requestTimeoutSeconds?: number | null;
 }
 
@@ -131,6 +134,7 @@ function validateFields(value: unknown): ValidatedProfileFields {
     promptLevel: setup.promptLevel ?? null,
     maxThinkingTokens: setup.maxThinkingTokens ?? null,
     maxCompletionTokens: setup.maxCompletionTokens ?? null,
+    requireReason: setup.requireReason !== false,
     requestTimeoutSeconds: setup.requestTimeoutSeconds ?? null,
   };
 }
@@ -223,6 +227,7 @@ function toView(profile: StoredModelProfile): ModelProfileView {
     promptLevel: profile.promptLevel ?? null,
     maxThinkingTokens: profile.maxThinkingTokens ?? null,
     maxCompletionTokens: profile.maxCompletionTokens ?? null,
+    requireReason: profile.requireReason,
     requestTimeoutSeconds: profile.requestTimeoutSeconds,
     keyConfigured: Boolean(profile.apiKey),
     keyHint: keyHint(profile.apiKey),
@@ -261,6 +266,7 @@ function isStoredProfile(value: unknown): value is StoredModelProfile {
         (typeof profile.maxCompletionTokens === 'number' &&
           Number.isInteger(profile.maxCompletionTokens) &&
           profile.maxCompletionTokens > 0)) &&
+      (profile.requireReason === undefined || typeof profile.requireReason === 'boolean') &&
       (profile.requestTimeoutSeconds === undefined ||
         profile.requestTimeoutSeconds === null ||
         (typeof profile.requestTimeoutSeconds === 'number' &&
@@ -328,6 +334,7 @@ export class ModelProfileStore {
       ...(profile.maxCompletionTokens !== null
         ? { maxCompletionTokens: profile.maxCompletionTokens }
         : {}),
+      requireReason: profile.requireReason,
       requestTimeoutSeconds: profile.requestTimeoutSeconds,
     };
   }
@@ -352,6 +359,7 @@ export class ModelProfileStore {
       promptLevel: input.promptLevel ?? null,
       maxThinkingTokens: input.maxThinkingTokens ?? null,
       maxCompletionTokens: input.maxCompletionTokens ?? null,
+      requireReason: input.requireReason !== false,
       requestTimeoutSeconds: input.requestTimeoutSeconds ?? null,
       createdAt: now,
       updatedAt: now,
@@ -377,6 +385,7 @@ export class ModelProfileStore {
     profile.promptLevel = input.promptLevel ?? null;
     profile.maxThinkingTokens = input.maxThinkingTokens ?? null;
     profile.maxCompletionTokens = input.maxCompletionTokens ?? null;
+    profile.requireReason = input.requireReason !== false;
     profile.requestTimeoutSeconds = input.requestTimeoutSeconds ?? null;
     if (input.apiKey.mode === 'replace') {
       profile.apiKey = input.apiKey.value;
@@ -469,6 +478,7 @@ export class ModelProfileStore {
             raw.maxCompletionTokens > 0
               ? raw.maxCompletionTokens
               : null,
+          requireReason: raw.requireReason !== false,
           requestTimeoutSeconds:
             typeof raw.requestTimeoutSeconds === 'number' &&
             Number.isInteger(raw.requestTimeoutSeconds) &&

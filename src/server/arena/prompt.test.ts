@@ -107,6 +107,20 @@ describe('prompt building', () => {
     expect(deepCorrection).toContain('不超过120字');
   });
 
+  it('can omit the reason field from every prompt variant', () => {
+    const system = buildSystemPrompt('red', 'balanced', false);
+    expect(system).toContain('{"move":"<合法着法列表中的 UCCI>"}');
+    expect(system).not.toContain('"reason"');
+
+    const prompt = buildUserPrompt(context(), 'balanced', false);
+    expect(prompt).toContain('{"move":"<UCCI>"}');
+    expect(prompt).not.toContain('"reason"');
+
+    const correction = buildCorrection('着法无效', legalMoves, 'balanced', false);
+    expect(correction).toContain('{"move":"<合法着法列表中的 UCCI>"}');
+    expect(correction).not.toContain('"reason"');
+  });
+
   it('keeps more history for the detailed prompt than the compact prompt', () => {
     const ctx = context();
     ctx.ply = 20;

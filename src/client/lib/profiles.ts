@@ -38,6 +38,8 @@ export interface ProfileForm {
   maxThinkingTokens: number | null;
   /** Hard total-output cap; null sends no cap. */
   maxCompletionTokens: number | null;
+  /** When false the prompt only asks for a move and omits the reason field. */
+  requireReason: boolean;
   requestTimeoutSeconds: number | null;
 }
 
@@ -123,6 +125,7 @@ export function createProfileForm(): ProfileForm {
     promptLevel: config.promptLevel,
     maxThinkingTokens: config.maxThinkingTokens,
     maxCompletionTokens: config.maxCompletionTokens,
+    requireReason: config.requireReason,
     requestTimeoutSeconds: null,
   };
 }
@@ -143,6 +146,7 @@ export function profileToForm(profile: ModelProfileView): ProfileForm {
     promptLevel: profile.promptLevel ?? null,
     maxThinkingTokens: profile.maxThinkingTokens ?? null,
     maxCompletionTokens: profile.maxCompletionTokens ?? null,
+    requireReason: profile.requireReason ?? true,
     requestTimeoutSeconds: profile.requestTimeoutSeconds ?? null,
   };
 }
@@ -162,6 +166,7 @@ export function applyProfileFormPreset(form: ProfileForm, presetKey: PresetKey):
     promptLevel: null,
     maxThinkingTokens: null,
     maxCompletionTokens: null,
+    requireReason: true,
     requestTimeoutSeconds: null,
     name:
       currentName.length === 0 || currentName === presetByKey(form.preset).label
@@ -195,6 +200,7 @@ export function toProfileCreateRequest(form: ProfileForm): ModelProfileCreateReq
     promptLevel: form.promptLevel,
     maxThinkingTokens: form.maxThinkingTokens,
     maxCompletionTokens: form.maxCompletionTokens,
+    requireReason: form.requireReason,
     requestTimeoutSeconds: form.requestTimeoutSeconds,
     apiKey: form.apiKey.trim(),
   };
@@ -215,6 +221,7 @@ export function toProfileUpdateRequest(
     promptLevel: form.promptLevel,
     maxThinkingTokens: form.maxThinkingTokens,
     maxCompletionTokens: form.maxCompletionTokens,
+    requireReason: form.requireReason,
     requestTimeoutSeconds: form.requestTimeoutSeconds,
   };
 
@@ -253,6 +260,7 @@ export function applyProfileToGameForm(
     promptLevel?: ThinkingLevel | null;
     maxThinkingTokens?: number | null;
     maxCompletionTokens?: number | null;
+    requireReason?: boolean;
   },
   profile: ModelProfileView,
 ): typeof form {
@@ -270,6 +278,7 @@ export function applyProfileToGameForm(
     promptLevel: profile.promptLevel ?? null,
     maxThinkingTokens: profile.maxThinkingTokens ?? null,
     maxCompletionTokens: profile.maxCompletionTokens ?? null,
+    requireReason: profile.requireReason ?? true,
     requestTimeoutSeconds: profile.requestTimeoutSeconds ?? null,
   };
 }

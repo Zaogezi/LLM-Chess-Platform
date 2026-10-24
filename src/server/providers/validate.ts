@@ -129,6 +129,13 @@ export function validateApiReasoning(value: unknown): boolean {
   throw new ValidationError('API 推理参数开关必须是布尔值');
 }
 
+/** Whether the prompt must ask for the JSON `reason` field (default true). */
+export function validateRequireReason(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value === 'boolean') return value;
+  throw new ValidationError('要求输出理由开关必须是布尔值');
+}
+
 /** `null` means "follow the thinking tier" rather than an explicit limit. */
 export function validateRequestTimeoutSeconds(value: unknown): number | null {
   if (value === undefined || value === null || value === '') return null;
@@ -257,6 +264,7 @@ export function validateModelSetup(value: unknown, sideOrLabel: Side | string): 
   const promptLevel = validatePromptLevel(input.promptLevel);
   const maxThinkingTokens = validateMaxThinkingTokens(input.maxThinkingTokens);
   const maxCompletionTokens = validateMaxCompletionTokens(input.maxCompletionTokens);
+  const requireReason = validateRequireReason(input.requireReason);
   validateTokenCaps(
     provider as ProviderKind,
     thinkingLevel,
@@ -276,6 +284,7 @@ export function validateModelSetup(value: unknown, sideOrLabel: Side | string): 
     ...(promptLevel !== null ? { promptLevel } : {}),
     ...(maxThinkingTokens !== null ? { maxThinkingTokens } : {}),
     ...(maxCompletionTokens !== null ? { maxCompletionTokens } : {}),
+    ...(requireReason ? {} : { requireReason: false }),
     ...(requestTimeoutSeconds !== null ? { requestTimeoutSeconds } : {}),
   };
 }
@@ -329,6 +338,10 @@ function resolveSideRequest(
       input.maxCompletionTokens === undefined
         ? saved.maxCompletionTokens ?? null
         : validateMaxCompletionTokens(input.maxCompletionTokens);
+    const requireReason =
+      input.requireReason === undefined
+        ? saved.requireReason !== false
+        : validateRequireReason(input.requireReason);
     validateTokenCaps(
       saved.provider,
       thinkingLevel,
@@ -343,6 +356,7 @@ function resolveSideRequest(
       ...(promptLevel !== null ? { promptLevel } : {}),
       ...(maxThinkingTokens !== null ? { maxThinkingTokens } : {}),
       ...(maxCompletionTokens !== null ? { maxCompletionTokens } : {}),
+      requireReason,
       ...(requestTimeoutSeconds !== null ? { requestTimeoutSeconds } : {}),
     };
   }

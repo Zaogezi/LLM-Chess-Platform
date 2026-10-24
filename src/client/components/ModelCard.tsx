@@ -16,6 +16,7 @@ import { profileKeyLabel } from '../lib/profiles';
 import { EyeIcon, EyeOffIcon, LockIcon } from './Icons';
 import { PromptLevelField } from './PromptLevelField';
 import { ReasoningTimeoutField } from './ReasoningTimeoutField';
+import { RequireReasonField } from './RequireReasonField';
 import { ThinkingLevelField } from './ThinkingLevelField';
 import { TokenLimitsField } from './TokenLimitsField';
 
@@ -93,6 +94,8 @@ export function ModelCard({
     locked && serverModel ? serverModel.maxThinkingTokens ?? null : form.maxThinkingTokens;
   const displayMaxCompletionTokens =
     locked && serverModel ? serverModel.maxCompletionTokens ?? null : form.maxCompletionTokens;
+  const displayRequireReason =
+    locked && serverModel ? serverModel.requireReason ?? true : form.requireReason;
   const displayRequestTimeout =
     locked && serverModel ? serverModel.requestTimeoutSeconds ?? null : form.requestTimeoutSeconds;
   const tokenLimitText = describeTokenLimits(
@@ -101,6 +104,11 @@ export function ModelCard({
   );
   const hasTokenLimit = tokenLimitText !== null;
   const hasErrors = Object.keys(errors).length > 0;
+  const showLimitsRow =
+    Boolean(displayPromptLevel) ||
+    hasTokenLimit ||
+    !displayRequireReason ||
+    (locked && serverModel !== null);
 
   const summaryTitle = [
     thinkingLevelHint(displayThinkingLevel, displayRequestTimeout),
@@ -114,6 +122,7 @@ export function ModelCard({
         )
       : '',
     tokenLimitText ? `Token 上限：${tokenLimitText}。` : '未设置 token 上限。',
+    displayRequireReason ? '' : '提示词不要求理由，棋谱理由为空。',
   ]
     .filter((part) => part.length > 0)
     .join(' ');
@@ -143,7 +152,7 @@ export function ModelCard({
             {displayApiReasoning ? ' · API' : ''}
           </span>
         </span>
-        {(displayPromptLevel || hasTokenLimit || (locked && serverModel)) && (
+        {showLimitsRow && (
           <span className="model-card__limits">
             {(displayPromptLevel || (locked && serverModel)) && (
               <span
@@ -156,6 +165,14 @@ export function ModelCard({
             {tokenLimitText && (
               <span className="thinking-badge" title={`Token 上限：${tokenLimitText}`}>
                 {tokenLimitText}
+              </span>
+            )}
+            {!displayRequireReason && (
+              <span
+                className="thinking-badge"
+                title="提示词只要求 move，不输出 reason 字段。"
+              >
+                无需理由
               </span>
             )}
           </span>
@@ -356,6 +373,12 @@ export function ModelCard({
           value={form.promptLevel}
           thinkingLevel={form.thinkingLevel}
           onChange={(level) => onChange({ promptLevel: level })}
+        />
+
+        <RequireReasonField
+          id={`${side}-requireReason`}
+          value={form.requireReason}
+          onChange={(requireReason) => onChange({ requireReason })}
         />
 
         <TokenLimitsField

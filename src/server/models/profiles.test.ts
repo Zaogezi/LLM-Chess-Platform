@@ -158,6 +158,28 @@ describe('ModelProfileStore', () => {
     );
   });
 
+  it('persists the optional reason requirement (default true)', () => {
+    const filePath = tempFile();
+    const store = new ModelProfileStore({ filePath });
+    const created = store.create(validateProfileCreate(input({ requireReason: false })));
+
+    expect(created.requireReason).toBe(false);
+    expect(store.resolveSetup(created.id)?.requireReason).toBe(false);
+    const reloaded = new ModelProfileStore({ filePath });
+    expect(reloaded.find(created.id)?.requireReason).toBe(false);
+
+    const restored = reloaded.update(
+      created.id,
+      validateProfileUpdate(input({ requireReason: true, apiKey: undefined })),
+    );
+    expect(restored?.requireReason).toBe(true);
+    expect(reloaded.resolveSetup(created.id)?.requireReason).toBe(true);
+    expect(
+      store.find(store.create(validateProfileCreate(input({ name: '默认理由模型' }))).id)
+        ?.requireReason,
+    ).toBe(true);
+  });
+
   it('updates fields while keeping, replacing or clearing the secret', () => {
     const store = new ModelProfileStore({ filePath: null });
     const created = store.create(validateProfileCreate(input()));

@@ -278,6 +278,7 @@ export class Arena {
       promptLevel: setup.promptLevel ?? null,
       maxThinkingTokens: setup.maxThinkingTokens ?? null,
       maxCompletionTokens: setup.maxCompletionTokens ?? null,
+      requireReason: setup.requireReason !== false,
       requestTimeoutSeconds: setup.requestTimeoutSeconds ?? null,
       apiReasoning: Boolean(setup.apiReasoning),
       keyConfigured: Boolean(setup.apiKey),
@@ -384,9 +385,10 @@ export class Arena {
 
     // Prompt intensity and API reasoning intensity are independent settings.
     const promptLevel = resolvePromptLevel(runtime.setup);
-    const system = buildSystemPrompt(side, promptLevel);
+    const requireReason = runtime.setup.requireReason !== false;
+    const system = buildSystemPrompt(side, promptLevel, requireReason);
     const messages: ConversationMessage[] = [
-      { role: 'user', content: buildUserPrompt(context, promptLevel) },
+      { role: 'user', content: buildUserPrompt(context, promptLevel, requireReason) },
     ];
 
     for (let attempt = 1; attempt <= this.settings.maxAttempts; attempt += 1) {
@@ -470,7 +472,10 @@ export class Arena {
             role: 'assistant',
             content: truncate(reply.text.trim(), 1200) || '（空响应）',
           });
-          messages.push({ role: 'user', content: buildCorrection(problem, legalMoves, promptLevel) });
+          messages.push({
+            role: 'user',
+            content: buildCorrection(problem, legalMoves, promptLevel, requireReason),
+          });
           this.emitState();
           await sleep(150, signal);
           if (!this.isCurrent(seq)) return;
@@ -502,7 +507,10 @@ export class Arena {
             role: 'assistant',
             content: truncate(reply.text.trim(), 1200) || '（空响应）',
           });
-          messages.push({ role: 'user', content: buildCorrection(problem, legalMoves, promptLevel) });
+          messages.push({
+            role: 'user',
+            content: buildCorrection(problem, legalMoves, promptLevel, requireReason),
+          });
           this.emitState();
           await sleep(150, signal);
           if (!this.isCurrent(seq)) return;
@@ -529,7 +537,7 @@ export class Arena {
             });
             messages.push({
               role: 'user',
-              content: buildCorrection(error.message, legalMoves, promptLevel),
+              content: buildCorrection(error.message, legalMoves, promptLevel, requireReason),
             });
             this.emitState();
             await sleep(150, signal);

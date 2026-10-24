@@ -74,6 +74,7 @@ describe('validateTournamentStartRequest', () => {
           promptLevel: 'quick',
           maxThinkingTokens: 2048,
           maxCompletionTokens: 4096,
+          requireReason: false,
           requestTimeoutSeconds: 120,
         };
       },
@@ -90,6 +91,7 @@ describe('validateTournamentStartRequest', () => {
             promptLevel: 'deep',
             maxThinkingTokens: 8192,
             maxCompletionTokens: 16384,
+            requireReason: true,
             requestTimeoutSeconds: 300,
           },
           { name: '乙', profileId: 'saved-a' },
@@ -109,6 +111,7 @@ describe('validateTournamentStartRequest', () => {
       promptLevel: 'deep',
       maxThinkingTokens: 8192,
       maxCompletionTokens: 16384,
+      requireReason: true,
       requestTimeoutSeconds: 300,
     });
     expect(input.models[1]?.setup).toMatchObject({
@@ -117,11 +120,12 @@ describe('validateTournamentStartRequest', () => {
       promptLevel: 'quick',
       maxThinkingTokens: 2048,
       maxCompletionTokens: 4096,
+      requireReason: false,
       requestTimeoutSeconds: 120,
     });
   });
 
-  it('rejects out-of-range token caps on a model-library override', () => {
+  it('rejects invalid model-library overrides (token caps, requireReason)', () => {
     const profiles = {
       resolveSetup: () => ({
         provider: 'openai' as const,
@@ -136,6 +140,7 @@ describe('validateTournamentStartRequest', () => {
       { maxThinkingTokens: 32769 },
       { maxCompletionTokens: 255 },
       { maxCompletionTokens: 131073 },
+      { requireReason: 'yes' },
     ]) {
       expect(() =>
         validateTournamentStartRequest(
