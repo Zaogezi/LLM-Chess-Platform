@@ -9,10 +9,8 @@ import {
   CHAMPIONSHIP_GROUPS,
   CHAMPIONSHIP_GROUP_GAMES_PER_GROUP,
   gamesForGroup,
-  groupQualificationLabel,
   groupStandingQualified,
 } from '../../lib/championship';
-import { modelThinkingLabel } from '../../lib/tournament';
 import { ChampionshipGameList } from './ChampionshipGames';
 
 interface ChampionshipGroupsProps {
@@ -66,7 +64,6 @@ export function ChampionshipGroups({
   currentGameIds,
   preview,
 }: ChampionshipGroupsProps) {
-  const entrantById = new Map(entrants.map((entrant) => [entrant.id, entrant]));
   const hasGroups = groups.length > 0;
 
   return (
@@ -105,9 +102,6 @@ export function ChampionshipGroups({
                 }`}
               >
                 <header className="champ-group__head">
-                  <span className="champ-group__seal" aria-hidden="true">
-                    {groupId}
-                  </span>
                   <div className="champ-group__title">
                     <h3>{groupId} 组</h3>
                     <span>{groupProgressLabel(phase, group, done)}</span>
@@ -139,10 +133,6 @@ export function ChampionshipGroups({
                             !preview && (group.complete || phase === 'running');
                           const qualified =
                             showQualification && groupStandingQualified(group, standing);
-                          const badge = showQualification
-                            ? groupQualificationLabel(group, standing)
-                            : '';
-                          const entrant = entrantById.get(standing.modelId);
                           return (
                             <tr
                               key={standing.modelId}
@@ -157,13 +147,6 @@ export function ChampionshipGroups({
                                 <span className="tourney-table__name" title={standing.name}>
                                   {standing.name}
                                 </span>
-                                <span className="tourney-model-meta">
-                                  <span className="thinking-badge">{modelThinkingLabel(entrant)}</span>
-                                  {entrant && (
-                                    <span className="champ-pool-chip">{entrant.seedPool} 池</span>
-                                  )}
-                                </span>
-                                {badge && <span className={`champ-qual-badge${group.complete ? ' is-final' : ''}`}>{badge}</span>}
                               </td>
                               <td className="tourney-table__num tourney-table__num--win">{standing.wins}</td>
                               <td className="tourney-table__num tourney-table__num--draw">{standing.draws}</td>

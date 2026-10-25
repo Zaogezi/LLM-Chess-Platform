@@ -9,10 +9,8 @@ import {
   qualifierCurrentGames,
   qualifierPhaseTone,
   qualifierProgress,
-  qualifierQualificationLabel,
   qualifierStandingQualified,
 } from '../../lib/qualifier';
-import { modelThinkingLabel } from '../../lib/tournament';
 import { ChampionshipGameList } from './ChampionshipGames';
 
 interface QualifierBoardProps {
@@ -55,7 +53,6 @@ export function QualifierBoard({ state }: QualifierBoardProps) {
 
   const progress = qualifierProgress(state);
   const currentGames = qualifierCurrentGames(state);
-  const entrantById = new Map(state.entrants.map((entrant) => [entrant.id, entrant]));
 
   return (
     <section className="panel champ-groups qualifier-board" aria-label="入围赛积分与排名">
@@ -83,11 +80,6 @@ export function QualifierBoard({ state }: QualifierBoardProps) {
         >
           <span className="tourney-progress__fill" style={{ width: `${progress.percent}%` }} />
         </div>
-        <p className="qualifier-board__meta">
-          <span>每组 {CHAMPIONSHIP_QUALIFIER_GROUP_GAMES_PER_GROUP} 局</span>
-          <span>小组 {progress.groupsComplete} / 2 完成</span>
-          <span>前二进入四号种子池</span>
-        </p>
       </div>
 
       {currentGames.length > 0 && (
@@ -128,9 +120,6 @@ export function QualifierBoard({ state }: QualifierBoardProps) {
               }`}
             >
               <header className="champ-group__head">
-                <span className="champ-group__seal" aria-hidden="true">
-                  {groupId}
-                </span>
                 <div className="champ-group__title">
                   <h3>{QUALIFIER_GROUP_LABELS[groupId]}</h3>
                   <span>{groupStatusLabel(group, state.phase)}</span>
@@ -163,9 +152,7 @@ export function QualifierBoard({ state }: QualifierBoardProps) {
                     </thead>
                     <tbody>
                       {group.standings.map((standing) => {
-                        const entrant = entrantById.get(standing.modelId);
                         const qualified = qualifierStandingQualified(group, standing);
-                        const badge = qualifierQualificationLabel(group, standing);
                         return (
                           <tr
                             key={standing.modelId}
@@ -180,14 +167,6 @@ export function QualifierBoard({ state }: QualifierBoardProps) {
                               <span className="tourney-table__name" title={standing.name}>
                                 {standing.name}
                               </span>
-                              <span className="tourney-model-meta">
-                                <span className="thinking-badge">{modelThinkingLabel(entrant)}</span>
-                              </span>
-                              {badge && (
-                                <span className={`champ-qual-badge${group.complete ? ' is-final' : ''}`}>
-                                  {badge}
-                                </span>
-                              )}
                             </td>
                             <td className="tourney-table__num tourney-table__num--win">{standing.wins}</td>
                             <td className="tourney-table__num tourney-table__num--draw">{standing.draws}</td>

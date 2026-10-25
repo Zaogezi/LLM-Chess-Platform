@@ -9583,6 +9583,23 @@ input[type="range"].range:disabled {
   color: #e5a892;
 }
 
+/* Championship status reads as plain copy, not as a rounded pill/tag. */
+.championship-app .tourney-status,
+.championship-app .status-chip {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: #a4937a;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.championship-app .status-chip__dot {
+  display: none;
+}
+
 .champ-hero__series b {
   color: #e6c896;
   font-family: var(--font-kai);

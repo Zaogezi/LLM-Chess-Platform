@@ -34,14 +34,6 @@ export function ChampionshipBracket({
         <h2 className="panel__title">淘汰赛</h2>
       </div>
 
-      <div className="champ-bracket__flow" aria-hidden="true">
-        <span>八强赛</span>
-        <i />
-        <span>半决赛</span>
-        <i />
-        <span>决赛</span>
-      </div>
-
       {series.length === 0 ? (
         <div className="tourney-empty">
           <span className="tourney-empty__seal" aria-hidden="true">

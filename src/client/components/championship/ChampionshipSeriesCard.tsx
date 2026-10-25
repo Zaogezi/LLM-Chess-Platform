@@ -7,7 +7,6 @@ import {
   formatChampionshipScore,
   formatSeriesProgress,
   seriesSeedPlaceholder,
-  seriesWinnerName,
 } from '../../lib/championship';
 import { ChampionshipGameList } from './ChampionshipGames';
 
@@ -25,7 +24,6 @@ export function ChampionshipSeriesCard({
   currentGameIds = [],
 }: ChampionshipSeriesCardProps) {
   const tone = championshipSeriesStatusTone(series.status);
-  const winnerName = seriesWinnerName(series);
   const stageFlag = championshipSeriesStageFlag(series);
   const leftWinner = Boolean(series.winnerModelId && series.left?.modelId === series.winnerModelId);
   const rightWinner = Boolean(
@@ -112,13 +110,6 @@ export function ChampionshipSeriesCard({
         <p className="champ-series__live">
           <span className="tourney-live-dot" aria-hidden="true" />
           {liveText}
-        </p>
-      )}
-
-      {winnerName && (
-        <p className="champ-series__winner">
-          <span>{series.stage === 'final' ? '冠军' : '晋级'}</span>
-          {winnerName}
         </p>
       )}
 
